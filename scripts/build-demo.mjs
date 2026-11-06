@@ -69,7 +69,7 @@ try {
         machine_id: m.id.padEnd(32, "0"),
         machine_name: m.name,
         os: m.os,
-        client_version: "3.12",
+        client_version: "3.13",
         token_state: "ok",
       };
       if (since && active) {

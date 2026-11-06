@@ -684,6 +684,8 @@ function clientApp() {
   function plainLabel(k) { return t(k).replace(/^[\u{1F300}-\u{1FAFF}\u2300-\u23FF\u2600-\u27BF]\uFE0F?\s*/u, ""); }
   function t(k, vars) {
     var dict = I18N[currentLang] || I18N["en"] || {};
+    // singular form: a key "<k>_one" is used when {n} is 1 (languages without one fall back to <k>)
+    if (vars && vars.n === 1 && (dict[k + "_one"] != null || (I18N["en"] && I18N["en"][k + "_one"] != null && dict[k] == null))) k = k + "_one";
     var str = dict[k] != null ? dict[k] : (I18N["en"] && I18N["en"][k] != null ? I18N["en"][k] : k);
     if (vars) {
       for (var p in vars) {

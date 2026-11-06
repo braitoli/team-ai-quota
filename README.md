@@ -9,6 +9,8 @@
 
 > Smart AI coding quota management, load balancing & capacity planning for engineering teams.
 
+[![Team AI Quota dashboard demo](docs/assets/demo.gif)](https://braitoli.github.io/team-ai-quota/)
+
 ---
 
 ## Why teams need this (not for individuals)

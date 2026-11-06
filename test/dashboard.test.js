@@ -180,3 +180,14 @@ test("static shell of the dashboard and login page has no Vietnamese", () => {
   assert.ok(!VI_DIACRITICS.test(strip(renderDashboardPage("{}", "k"))));
   assert.ok(!VI_DIACRITICS.test(strip(renderRestrictedPage(true))));
 });
+
+test("i18n: every singular key (<k>_one) has a plural base key and keeps the {n} placeholder", () => {
+  for (const lang of Object.keys(TRANSLATIONS)) {
+    for (const k of Object.keys(TRANSLATIONS[lang]).filter((x) => x.endsWith("_one"))) {
+      const base = k.slice(0, -4);
+      assert.ok(TRANSLATIONS[lang][base] != null || TRANSLATIONS.en[base] != null, `${lang}.${k} has no base key`);
+      assert.match(TRANSLATIONS[lang][k], /\{n\}/, `${lang}.${k} must contain {n}`);
+    }
+  }
+  assert.equal(TRANSLATIONS.en.c_n_mach_one, "{n} machine");
+});
