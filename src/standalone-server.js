@@ -1,5 +1,5 @@
 /**
- * Standalone Node.js + SQLite server for claude-quota-monitor.
+ * Standalone Node.js + SQLite server for team-ai-quota.
  * Runs anywhere (Docker, VPS, homelab, Kubernetes) using native `node:http`
  * and `node:sqlite` (DatabaseSync) with zero external npm dependencies.
  */
@@ -328,12 +328,12 @@ const isDirectRun =
 if (isDirectRun) {
   const app = createServer();
   app.listen(() => {
-    console.log(`[claude-quota-monitor] Standalone SQLite server listening on http://${app.host}:${app.port}`);
-    console.log(`[claude-quota-monitor] Persistent SQLite data directory: ${process.env.DATA_DIR || "./data"}`);
+    console.log(`[team-ai-quota] Standalone SQLite server listening on http://${app.host}:${app.port}`);
+    console.log(`[team-ai-quota] Persistent SQLite data directory: ${process.env.DATA_DIR || "./data"}`);
   });
 
   const onShutdown = () => {
-    console.log("[claude-quota-monitor] Shutting down server...");
+    console.log("[team-ai-quota] Shutting down server...");
     app.close()
       .then(() => process.exit(0))
       .catch(() => process.exit(1));

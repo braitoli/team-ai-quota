@@ -223,7 +223,7 @@ def fetch_codex_state(codex_bin):
                 return data.get("result"), None
 
     try:
-        _, err = call(1, "initialize", {"clientInfo": {"name": "claude-quota-monitor", "version": CODEX_CLIENT_VERSION}})
+        _, err = call(1, "initialize", {"clientInfo": {"name": "team-ai-quota", "version": CODEX_CLIENT_VERSION}})
         if err:
             return None, None, ("codex_failed", f"codex app-server refused to start: {err}", None)
         send({"method": "initialized"})

@@ -91,7 +91,7 @@ try {
     )
     .replace(
       /(<body[^>]*>)/,
-      '$1<div style="position:sticky;top:0;z-index:9999;background:#4f46e5;color:#fff;text-align:center;padding:6px 12px;font:600 13px system-ui">' +
+      '$1<div style="position:relative;background:#4f46e5;color:#fff;text-align:center;padding:6px 12px;font:600 13px system-ui">' +
         'Demo with synthetic sample data. Nothing here is real. ' +
         '<a style="color:#fff;text-decoration:underline" href="https://github.com/braitoli/team-ai-quota">Get Team AI Quota on GitHub</a></div>'
     );

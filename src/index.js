@@ -119,7 +119,7 @@ export default {
     }
 
     if (path === "/health") {
-      return jsonResponse({ status: "ok", service: "claude-quota-monitor" });
+      return jsonResponse({ status: "ok", service: "team-ai-quota" });
     }
 
     if (request.method === "GET" && (path === "/" || path === "/dashboard")) {

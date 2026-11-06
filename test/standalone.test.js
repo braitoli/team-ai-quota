@@ -28,7 +28,7 @@ test("Standalone SQLite Server - Full Lifecycle & Persistence", async (t) => {
       assert.equal(res1.status, 200);
       const json1 = await res1.json();
       assert.equal(json1.status, "ok");
-      assert.equal(json1.service, "claude-quota-monitor");
+      assert.equal(json1.service, "team-ai-quota");
 
       const res2 = await fetch(`${baseUrl1}/api/health`);
       assert.equal(res2.status, 200);
