@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Community Discussions & Support
+    url: https://github.com/braitoli/team-ai-quota/discussions
+    about: Ask questions, share architectures, and discuss with the community.
+  - name: Security Vulnerability Reporting
+    url: https://github.com/braitoli/team-ai-quota/security/policy
+    about: Report security issues privately per our SECURITY.md policy.

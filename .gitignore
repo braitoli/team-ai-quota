@@ -1,0 +1,13 @@
+node_modules/
+.wrangler/
+quota.log
+.dev.vars
+__pycache__/
+.DS_Store
+.codegraph/
+
+# Local Cloudflare Worker config with account_id and KV namespace IDs (never commit)
+wrangler.jsonc
+
+# Local secrets (never commit): worker access key, see docs/LOCAL_SECRETS.md
+.secrets/

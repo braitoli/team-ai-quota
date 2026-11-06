@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test Suite (Node.js 22 & Python 3.11)
+    runs-on: ubuntu-latest
+    env:
+      PROD_DEFAULTS_EXPECTED: ${{ vars.PROD_DEFAULTS_EXPECTED }}
+      EXPECTED_STORAGE_PREFIX: ${{ vars.EXPECTED_STORAGE_PREFIX }}
+      EXPECTED_LAUNCHD_PREFIX: ${{ vars.EXPECTED_LAUNCHD_PREFIX }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Node dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
+
+      - name: Run server and unit tests
+        run: node --test test/*.test.js
+
+      - name: Run client daemon tests
+        run: npm run test:client
+
+      - name: Run full test suite
+        run: npm test
+
+  docker-smoke:
+    name: Docker Build & Container Smoke Test
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build -t team-ai-quota:smoke .
+
+      - name: Run container
+        run: |
+          docker run -d \
+            --name quota-smoke-test \
+            -p 8787:8787 \
+            -e QUOTA_AUTH_KEY=smoke-test-secret-key \
+            -e NODE_ENV=production \
+            team-ai-quota:smoke
+
+      - name: Wait for container readiness
+        run: |
+          echo "Waiting for container healthiness..."
+          for i in $(seq 1 20); do
+            if curl -s -f http://127.0.0.1:8787/health >/dev/null 2>&1; then
+              echo "Container ready after $i seconds."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Container failed to become healthy within 20s"
+          docker logs quota-smoke-test
+          exit 1
+
+      - name: Smoke test /api/health
+        run: |
+          echo "Checking /api/health endpoint..."
+          HEALTH_RES=$(curl -s -f http://127.0.0.1:8787/api/health)
+          echo "Response: $HEALTH_RES"
+          echo "$HEALTH_RES" | grep -q '"status":"ok"'
+
+      - name: Smoke test unauthenticated /api/status (Expect 401)
+        run: |
+          echo "Verifying 401 Unauthorized without auth key..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8787/api/status)
+          if [ "$HTTP_STATUS" -ne 401 ]; then
+            echo "Expected HTTP 401, got $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Auth protection verified (HTTP 401 returned)"
+
+      - name: Smoke test authenticated /api/status
+        run: |
+          echo "Checking authenticated /api/status..."
+          STATUS_RES=$(curl -s -f -H "x-api-key: smoke-test-secret-key" http://127.0.0.1:8787/api/status)
+          echo "Status payload snippet: $(echo "$STATUS_RES" | cut -c 1-120)..."
+          echo "$STATUS_RES" | grep -q '"provider":"claude"'
+
+      - name: Smoke test authenticated /api/route
+        run: |
+          echo "Checking authenticated /api/route..."
+          ROUTE_RES=$(curl -s -f -H "x-api-key: smoke-test-secret-key" http://127.0.0.1:8787/api/route)
+          echo "Route response: $ROUTE_RES"
+          echo "$ROUTE_RES" | grep -q '"provider":"claude"'
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker logs quota-smoke-test
+
+      - name: Clean up container
+        if: always()
+        run: docker rm -f quota-smoke-test || true

@@ -1,0 +1,22 @@
+services:
+  quota-monitor:
+    build: .
+    container_name: team-ai-quota
+    ports:
+      - "8799:8799"
+    volumes:
+      - ./data:/data
+    environment:
+      - QUOTA_AUTH_KEY=${QUOTA_AUTH_KEY:-change-me-secret-key}
+      - DATA_DIR=/data
+      - PORT=8799
+      - HOST=0.0.0.0
+      - MACHINE_LABELS=${MACHINE_LABELS:-}
+      - ACCOUNT_LABELS=${ACCOUNT_LABELS:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8799/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

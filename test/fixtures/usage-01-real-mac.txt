@@ -1,0 +1,13 @@
+You are currently using your subscription to power your Claude Code usage
+
+Current session: 19% used · resets Oct 28 at 11:40am (Asia/Saigon)
+Current week (Fable): 0% used · resets Oct 29 at 5pm (Asia/Saigon)
+
+What's contributing to your usage?
+Approximate · sessions on this machine only · shares overlap
+
+Last 24h · 9172 requests · 9 sessions
+  100%  Give "general-purpose" subagents a cheaper model
+  90%  Stop sessions you no longer need · some ran 8 hours or more
+  56%  Start fresh when you switch tasks · run /clear
+  Top subagents: general-purpose 67%, game-dev 13%

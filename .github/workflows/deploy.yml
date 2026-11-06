@@ -1,0 +1,88 @@
+name: CI / Deploy Worker
+
+# Optional deploy pipeline for your own Cloudflare Worker. It is OFF unless you opt in, so forks and
+# fresh clones never try to deploy. Configure under Settings -> Secrets and variables -> Actions:
+#   variable DEPLOY_ENABLED         "true" to enable this workflow
+#   variable CI_RUNNER_LABELS       JSON array of runner labels (default ["ubuntu-latest"]), e.g. ["self-hosted","linux"]
+#   variable CLOUDFLARE_ACCOUNT_ID  your Cloudflare account id
+#   variable MACHINE_LABELS         optional, e.g. {"a1b2c3":"MacBook-M3"} (passed to the Worker as MACHINE_LABELS)
+#   variable WORKER_URL             optional, e.g. https://my-worker.example.workers.dev: /health is checked after deploy
+#   variable PROD_DEFAULTS_EXPECTED optional "1": tests fail if client/dashboard defaults are public placeholders
+#   variable EXPECTED_LAUNCHD_PREFIX optional, e.g. com.braitoli. (macOS LaunchAgent label prefix setup-mac.sh must keep)
+#   variable EXPECTED_STORAGE_PREFIX optional, localStorage key prefix the dashboard must keep (with the one above)
+#   secret   CLOUDFLARE_API_TOKEN   token with Workers Scripts: Edit
+# See docs/CI_CD.md.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Show Node.js version
+        run: node --version && npm --version
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci || npm install
+          else
+            npm install
+          fi
+
+      - name: Run tests
+        run: npm test
+        env:
+          PROD_DEFAULTS_EXPECTED: ${{ vars.PROD_DEFAULTS_EXPECTED }}
+          EXPECTED_STORAGE_PREFIX: ${{ vars.EXPECTED_STORAGE_PREFIX }}
+          EXPECTED_LAUNCHD_PREFIX: ${{ vars.EXPECTED_LAUNCHD_PREFIX }}
+
+  deploy:
+    name: Deploy to Cloudflare Workers
+    needs: test
+    if: vars.DEPLOY_ENABLED == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    concurrency: deploy-worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      MACHINE_LABELS: ${{ vars.MACHINE_LABELS }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # wrangler.jsonc is gitignored (it may hold account-specific values); CI builds it from the example.
+      - name: Prepare wrangler config
+        run: '[ -f wrangler.jsonc ] || cp wrangler.jsonc.example wrangler.jsonc'
+
+      - name: Deploy Worker
+        run: |
+          if [ -n "$MACHINE_LABELS" ]; then
+            npx --yes wrangler@4.153.0 deploy --var "MACHINE_LABELS:$MACHINE_LABELS"
+          else
+            npx --yes wrangler@4.153.0 deploy
+          fi
+
+      - name: Smoke test deployed Worker
+        run: |
+          if [ -n "$WORKER_URL" ]; then
+            for i in 1 2 3 4 5; do
+              curl -fsS "$WORKER_URL/health" && exit 0
+              sleep 5
+            done
+            echo "Worker /health failed after deploy" >&2
+            exit 1
+          fi
+        env:
+          WORKER_URL: ${{ vars.WORKER_URL }}

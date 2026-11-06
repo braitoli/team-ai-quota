@@ -1,0 +1,14 @@
+{
+  "name": "team-ai-quota",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "npx --yes wrangler@4.153.0 deploy",
+    "test": "node --test test/*.test.js && npm run test:client",
+    "build:demo": "node scripts/build-demo.mjs",
+    "dev": "npx --yes wrangler@4.153.0 dev --local --port 8799",
+    "seed:local": "node test/tools/seed-fake.mjs --post http://127.0.0.1:8799 --key local-test-key",
+    "test:client": "python3 -m unittest discover -s test -p \"test_client*.py\""
+  }
+}

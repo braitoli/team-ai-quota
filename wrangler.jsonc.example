@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "team-ai-quota",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-27",
+  // Optional: Set your Cloudflare account ID if deploying via CI/CD
+  // "account_id": "your-account-id-here",
+
+  // Single SQLite-backed Durable Object holding all state + pre-computed team snapshot
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TEAM_STORE",
+        "class_name": "TeamStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TeamStore"]
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

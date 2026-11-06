@@ -1,0 +1,89 @@
+name: "🐛 Bug Report"
+description: "File an issue about broken functionality, incorrect quota parsing, or daemon errors"
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue! Please provide as much context as possible so we can diagnose and resolve the problem quickly.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component Affected
+      description: Which part of the system is experiencing the issue?
+      options:
+        - "Standalone Server (Node.js + SQLite)"
+        - "Cloudflare Worker & Durable Objects"
+        - "Client Daemon - Python (Claude Code)"
+        - "Client Daemon - Python (Agy / Gemini)"
+        - "Client Daemon - Python (Codex)"
+        - "Docker Container / Compose"
+        - "Web Dashboard & Visualizer"
+        - "Routing & Load Balancer Algorithm"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "When running the client daemon with Codex 0.40+, the token window parsing fails..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can maintainers reproduce the issue?
+      placeholder: |
+        1. Run `docker compose up -d`
+        2. Set up client daemon with `python3 client/monitor.py --daemon`
+        3. Trigger command `...`
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs Actual Behavior
+      description: What did you expect to happen versus what actually happened?
+      placeholder: "Expected quota to report 25.0% used, but received parse_error."
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment & Versions
+      description: Details about your environment.
+      placeholder: |
+        - OS: macOS 15.0 / Ubuntu 24.04 / Windows 11 WSL2
+        - Node.js version: 22.x
+        - Python version: 3.11+
+        - CLI Tool Version: Claude Code 0.2.x / Codex 0.4x / AGY
+        - Deployment: Docker / Cloudflare Workers / Standalone Node
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs & Error Output
+      description: Paste any terminal output, server logs, or stack traces (redact secrets/keys!).
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: "I have searched existing issues to ensure this is not a duplicate."
+          required: true
+        - label: "I have redacted sensitive keys, passwords, or personal access tokens from the logs."
+          required: true
