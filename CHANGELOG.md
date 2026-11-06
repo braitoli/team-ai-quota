@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Texts the server puts in the snapshot (predictions, badges, auth labels, opportunity lines, machine intensity, placeholders for unnamed machines) are now English plus `<field>_key` / `<field>_params`, so the dashboard shows them in the selected language (English mode no longer shows Vietnamese). Old fields are kept; see `docs/api.md`.
+
 ## [1.0.0] - 2026-11-06
 
 ### Added

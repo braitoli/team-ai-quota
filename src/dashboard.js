@@ -3,7 +3,7 @@
 // all rendering happens client-side from that snapshot (no metric is recomputed, only
 // subset sums for the account filter).
 
-import { SUPPORTED_LANGUAGES, TRANSLATIONS, DEFAULT_LANG, t as i18nT } from "./i18n.js";
+import { SUPPORTED_LANGUAGES, TRANSLATIONS, DEFAULT_LANG, t as i18nT, formatTemplate } from "./i18n.js";
 
 const LOGO_SVG = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" aria-hidden="true">
   <circle cx="20" cy="20" r="5" stroke="#7C3AED" stroke-width="3"></circle>
@@ -694,6 +694,23 @@ function clientApp() {
   }
   // alias of t() for scopes that shadow `t` with a local variable
   var tx = t;
+  // Text the server generated (analytics.js): obj[field] is the English default, obj[field + "_key"] + obj[field + "_params"]
+  // let us render it in the current language (formatTemplate is inlined into the page, see renderDashboardPage).
+  // Snapshots without the key (stored before it existed, other API consumers) show the plain obj[field].
+  var SRV_FMT = {
+    time: function (v) { return hm(v); },
+    datetime: function (v) { return v == null ? "—" : hm(v) + " " + dm(v); },
+    dur: function (v) { return dur(v); }
+  };
+  function srvLookup(k) {
+    var dict = I18N[currentLang] || I18N["en"] || {};
+    return dict[k] != null ? dict[k] : (I18N["en"] && I18N["en"][k] != null ? I18N["en"][k] : k);
+  }
+  function sv(obj, field) {
+    var key = obj ? obj[field + "_key"] : null;
+    if (key == null) return obj ? obj[field] : undefined;
+    return formatTemplate(srvLookup(key), obj[field + "_params"], SRV_FMT, srvLookup);
+  }
 
   function updateStaticTexts() {
     var els = document.querySelectorAll("[data-i18n]");
@@ -1093,7 +1110,8 @@ function clientApp() {
     var w = r && r.auth_warning;
     if (!w || typeof w !== "object" || r.state_code === "AUTH") return "";
     var fallback = w.state === "auth_required" ? t("badge_auth_login") : w.state === "error" ? t("badge_auth_error") : t("badge_auth_expired");
-    var label = typeof w.label === "string" && w.label ? w.label : fallback;
+    var label = sv(w, "label");
+    if (typeof label !== "string" || !label) label = fallback;
     var at = ms(w.at);
     var tip = [w.error, w.error_kind].filter(function (x) { return typeof x === "string" && x; }).join(" · ");
     var attr = tip ? ' title="' + esc(tip) + '"' : "";
@@ -1264,7 +1282,7 @@ function clientApp() {
       var rs = ms(r.resets_at), now = Date.now();
       var when = rs == null ? "" : hmw(rs) + " (" + (rs > now ? t("hours_left", { dur: dur(rs - now) }) : t("past_reset")) + ")";
       var kind = r.state_code === "AUTH" ? "unreadable" : r.weekly_capped ? "weekly_capped" : r.state_code === "COOLDOWN" ? "cooldown" : r.state_code === "FRESH" ? "idle" : "no_action";
-      var text = kind === "unreadable" ? t("c_unmeasured") + " · " + (r.pacing_badge_text || t("c_att_login"))
+      var text = kind === "unreadable" ? t("c_unmeasured") + " · " + (sv(r, "pacing_badge_text") || t("c_att_login"))
         : kind === "weekly_capped" ? t("badge_weekly_cap") + (when ? " · " + t("c_reopen_at") + " " + when : "")
         : kind === "cooldown" ? t("c_out_of_quota", { win: weekView() ? t("c_win_week") : "5h" }) + " · " + t("c_reopen_at") + " " + when
         : kind === "idle" ? t("badge_ready_100") + " · " + t("c_cycle_unopened", { win: weekView() ? t("c_win_week") : "5h" })
@@ -1531,7 +1549,7 @@ function clientApp() {
     if (m.known_label) return m.known_label;
     var mid = String(m.machine_id || "").trim().toLowerCase();
     var ids = String(m.id_short || "").trim().toLowerCase().replace(/^#/, "");
-    var raw = String(m.name || m.machine_name || "").trim();
+    var raw = String(m.name_key ? sv(m, "name") : (m.name || m.machine_name || "")).trim();
     var low = raw.toLowerCase();
     var dyn = getDynamicMachineLabels();
     for (var dk in dyn) {
@@ -1731,7 +1749,7 @@ function clientApp() {
     var rs = ms(r.resets_at), now = Date.now();
     var remTxt = rs != null ? (rs > now ? t("hours_left", { dur: dur(rs - now) }) : t("past_reset")) : "";
     var ei = exhaustInfo(r);
-    if (r.state_code === "AUTH") return esc(r.auth_state === "expired_idle" ? t("c_token_idle", { pct: pct(r.used_percent) }) : (r.auth_label || t("badge_auth_login")));
+    if (r.state_code === "AUTH") return esc(r.auth_state === "expired_idle" ? t("c_token_idle", { pct: pct(r.used_percent) }) : (sv(r, "auth_label") || t("badge_auth_login")));
     if (r.five_hour_disabled) return fhdNote(r);
     if (r.weekly_capped) return t("c_locked_by_cap") + (r.weekly_resets_at ? " · " + t("c_reopen") + " " + when(ms(r.weekly_resets_at)) : "");
     if (r.state_code === "FRESH") return t("c_cycle_not_open") + (r.idle_since ? " · " + t("c_idle_since") + " " + when(ms(r.idle_since)) : "");
@@ -1828,7 +1846,7 @@ function clientApp() {
       var intLabel = m.intensity === "high" ? t("mach_int_high") :
                      m.intensity === "moderate" ? t("mach_int_mod") :
                      m.intensity === "unknown" ? t("mach_int_unknown") :
-                     m.intensity === "idle" ? "💤 " + (m.intensity_label || t("mach_int_idle")) : t("mach_int_offline");
+                     m.intensity === "idle" ? "💤 " + (sv(m, "intensity_label") || t("mach_int_idle")) : t("mach_int_offline");
       var intBadge = '<span class="intensity-badge ' + intTone + '">' + intLabel + '</span>';
 
       var acctHtml = "";
@@ -1949,7 +1967,7 @@ function clientApp() {
       var intLabel = m.intensity === "high" ? t("mach_int_high") :
                      m.intensity === "moderate" ? t("mach_int_mod") :
                      m.intensity === "unknown" ? t("mach_int_unknown") :
-                     m.intensity === "idle" ? "💤 " + (m.intensity_label || t("mach_int_idle")) : t("mach_int_offline");
+                     m.intensity === "idle" ? "💤 " + (sv(m, "intensity_label") || t("mach_int_idle")) : t("mach_int_offline");
       var intBadge = '<span class="intensity-badge ' + intTone + '">' + intLabel + '</span>';
 
       var curAcct = m.active_account ? chip(m.active_account) : '<span class="muted">—</span>';
@@ -2279,7 +2297,7 @@ function clientApp() {
     }).join("") + "</tbody></table></div>" + '<div class="wl-cards">' + wins.map(function (w) {
       return '<div class="wl-card"><div class="num">' + fmtRange(w.start, w.end) + '</div><div class="num" style="text-align:right">' + t("c_lost_short") + ' ' + pct(w.waste) + '</div><div>' + miniUsed(w.used) + ' <span class="num">' + pct(w.used) + '</span></div><div class="num muted" style="text-align:right">±' + Math.round(w.unc || 0) + "m</div></div>";
     }).join("") + "</div>" : '<div class="empty">' + t("c_no_closed_14d") + '</div>';
-    var err = r.state_code === "AUTH" ? '<div class="err" style="margin-top:12px"><b>' + esc(r.auth_label || t("c_auth_err")) + "</b>" + (r.auth_error ? "<br>" + esc(r.auth_error) : "") + (r.auth_at ? '<br><span class="muted">' + t("c_at") + ' ' + when(ms(r.auth_at)) + "</span>" : "") + "</div>" : "";
+    var err = r.state_code === "AUTH" ? '<div class="err" style="margin-top:12px"><b>' + esc(sv(r, "auth_label") || t("c_auth_err")) + "</b>" + (r.auth_error ? "<br>" + esc(r.auth_error) : "") + (r.auth_at ? '<br><span class="muted">' + t("c_at") + ' ' + when(ms(r.auth_at)) + "</span>" : "") + "</div>" : "";
     d.innerHTML =
       '<div class="drawer-h"><div style="display:flex;flex-direction:column;gap:6px;min-width:0">' + chip(r.email) + '<div class="muted" style="font-size:12px;word-break:break-all">' + esc(r.email) + (r.pool_label ? " · " + esc(r.pool_label) : "") + "</div></div>" +
       '<button type="button" class="btn btn-icon" id="drawerClose" aria-label="' + esc(t("drawer_close")) + '"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg></button></div>' +
@@ -2830,6 +2848,7 @@ export function renderDashboardPage(snapshotJson, key) {
   // static shell text is rendered in the default language; the client re-applies the chosen language on load
   const LT = (k) => i18nT(k, {}, DEFAULT_LANG).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   const appSrc = clientApp.toString().replace(/<\/(script)/gi, "<\\/$1").replace(/<!--/g, "<\\!--");
+  const formatTemplateSrc = formatTemplate.toString().replace(/<\/(script)/gi, "<\\/$1").replace(/<!--/g, "<\\!--");
   return `<!DOCTYPE html>
 <html lang="vi" class="dark">
 <head>
@@ -2981,6 +3000,7 @@ export function renderDashboardPage(snapshotJson, key) {
   <script type="application/json" id="i18n-data">${i18nJson}</script>
   <script>
     var __name = function (f) { return f; };
+    var formatTemplate = (${formatTemplateSrc});
     window.__QUOTA_KEY = ${keyJson};
     window.__I18N = JSON.parse(document.getElementById("i18n-data").textContent);
     (${appSrc})();

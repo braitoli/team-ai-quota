@@ -7,6 +7,7 @@
 import { validateReport, isProvider, DEFAULT_PROVIDER, PROVIDERS, rankAccountsForRouting } from "./analytics.js";
 import { validateSettingsPatch } from "./config.js";
 import { renderDashboardPage, renderRestrictedPage } from "./dashboard.js";
+import { detectLanguage, t as i18nT } from "./i18n.js";
 
 export { TeamStore } from "./team-store.js";
 
@@ -102,6 +103,10 @@ function teamStore(env, provider = DEFAULT_PROVIDER) {
   return env.TEAM_STORE.get(env.TEAM_STORE.idFromName(name));
 }
 
+/** Language of the plain error pages: the browser's Accept-Language, English when none matches. */
+const pageLang = (request) =>
+  detectLanguage(null, String(request.headers.get("accept-language") || "").split(",").map((l) => l.split(";")[0].trim()).filter(Boolean));
+
 const badProvider = () => ({ error: `provider must be one of ${Object.keys(PROVIDERS).join(", ")}` });
 
 export default {
@@ -127,13 +132,14 @@ export default {
         return htmlResponse(renderRestrictedPage(Boolean(getRequestKey(request))));
       }
       const provider = queryProvider(url);
-      if (!provider) return htmlResponse("<h1>Provider không hợp lệ</h1>", 400);
+      if (!provider) return htmlResponse(`<h1>${i18nT("srv_err_bad_provider", {}, pageLang(request))}</h1>`, 400);
       try {
         const snap = await teamStore(env, provider).getSnapshot(null);
         return htmlResponse(renderDashboardPage(snap.body, getRequestKey(request)));
       } catch (err) {
         console.error("dashboard error:", err && err.message);
-        return htmlResponse("<h1>Lỗi máy chủ</h1><p>Không đọc được số liệu.</p>", 500);
+        const lang = pageLang(request);
+        return htmlResponse(`<h1>${i18nT("srv_err_server", {}, lang)}</h1><p>${i18nT("srv_err_server_detail", {}, lang)}</p>`, 500);
       }
     }
 
