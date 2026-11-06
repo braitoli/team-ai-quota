@@ -36,22 +36,19 @@ Individual quota monitors and local status bar extensions only observe a single 
 ## Screenshots
 
 ![Team AI Quota Live Dashboard Overview](docs/assets/dashboard-overview-en.png)
-*Figure 1: Full Web Dashboard Overview (English) — Highlighting the Hero Recommendation Card ("Which account should I use right now?"), multi-window capacity planning (7-day weekly priority & 5-hour rolling burst), and live account states (Ready, Active, Hot Burn & Collision, Weekly Reset Ready).*
+*Figure 1: Full Web Dashboard Overview — the Hero Recommendation Card ("Which account should I use right now?"), multi-window capacity planning (7-day weekly priority & 5-hour rolling burst), and live account states (Ready, Active, Hot Burn & Collision, Weekly Reset Ready).*
 
 <br/>
 
-![Multi-CLI Configuration, Window Metrics & Friendly Labeling Modal](docs/assets/settings-labeling-modal.png)
-*Figure 2: Settings & Friendly Labeling Modal (`⚙️`) — Independent toggles for 6 CLI coding agents (`claude`, `codex`, `agy`, `gemini`, `copilot`, `cursor`), multi-window selection (`7d`, `5h`, `30d`), priority mode routing, and human-friendly machine/account name mappings.*
+![Settings & Friendly Labels modal](docs/assets/settings-modal-en.png)
+*Figure 2: Settings & Friendly Labels Modal (`⚙️`) — independent toggles for 6 CLI coding agents (`claude`, `codex`, `agy`, `gemini`, `copilot`, `cursor`), multi-window selection (`7d`, `5h`, `30d`), priority mode routing, and human-friendly machine/account names.*
 
 <br/>
 
-![Full Internationalized Dashboard View](docs/assets/dashboard-overview-vi.png)
-*Figure 3: Internationalized Dashboard (Vietnamese View) — Real-time 7-day exhaustion alerts, sustainable burn pacing (`0.4%/h`), and automatic post-weekly reset recovery (`Đã reset tuần · Sẵn sàng 100%`).*
+![Account details drawer](docs/assets/machine-drawer-en.png)
+*Figure 3: Account Details Drawer — consumption velocity curve with projected exhaustion, concurrent seat-collision warnings, and which machines are logged in and measuring the account.*
 
-<br/>
-
-![Workstation Telemetry & Burn Rate Drawer](docs/assets/multi-language-selector.png)
-*Figure 4: Workstation Telemetry & Burn Rate Drawer — Detailed consumption velocity curves, concurrent seat collision warnings, and workstation handoff audit trail.*
+The dashboard is also available in Vietnamese (language selector in the header): see [README.vi.md](README.vi.md).
 
 ---
 
