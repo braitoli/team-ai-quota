@@ -130,7 +130,8 @@ test("auth report (no valid report for > 75 min) keeps previous used, adds no sa
   assert.equal(row.used_percent, 40);
   assert.equal(row.free_now, null);
   assert.equal(row.auth_warning, null);
-  assert.match(row.auth_label, /lâu không dùng/);
+  assert.match(row.auth_label, /inactivity/);
+  assert.equal(row.auth_label_key, "srv_auth_expired_idle");
   const c = ingestReport(b.state, q("a@x.io", 45, reset), t + 10 * M);
   assert.equal(c.state.auth_state, null);
   assert.equal(computeRow(c.state, [], t + 10 * M).state_code, "ACTIVE");
@@ -151,7 +152,9 @@ test("auth report from another machine within 75 min of a valid report only adds
     assert.equal(row.auth_state, null);
     assert.deepEqual(row.auth_warning, {
       state: "expired_idle",
-      label: "Token hết hạn do lâu không dùng (nhiều khả năng đang rảnh)",
+      label: "Token expired from inactivity (most likely idle)",
+      label_key: "srv_auth_expired_idle",
+      label_params: {},
       at: new Date(t + 2 * M).toISOString(),
       error: "401",
       error_kind: null,
@@ -590,7 +593,9 @@ test("recommendation ordering: use_before_reset by waste per remaining hour", ()
   ];
   const opp = computeOpportunity(rows, [], now);
   assert.deepEqual(opp.use_before_reset.map((x) => x.email), ["b@x.io", "a@x.io"]);
-  assert.match(opp.use_before_reset[0].text, /sẽ mất lúc/);
+  assert.match(opp.use_before_reset[0].text, /will be lost at/);
+  assert.equal(opp.use_before_reset[0].text_key, "srv_opp_waste");
+  assert.equal(opp.use_before_reset[0].text_params.waste, 30);
 });
 
 test("others lists every account not in another list, actionable lists untouched (prod case)", () => {
@@ -603,7 +608,7 @@ test("others lists every account not in another list, actionable lists untouched
     { email: "cuong@x.io", state_code: "ACTIVE", at_risk_waste: 0, used_percent: 80, free_now: 20, resets_at: iso(3 * H), exhaust_at: iso(H), confidence: "high" },
     { email: "fresh@x.io", state_code: "FRESH", free_now: 100 },
     { email: "cap@x.io", state_code: "COOLDOWN", weekly_capped: true, free_now: 0, resets_at: iso(30 * H) },
-    { email: "auth@x.io", state_code: "AUTH", auth_state: "auth_required", free_now: null, pacing_badge_text: "Cần đăng nhập" },
+    { email: "auth@x.io", state_code: "AUTH", auth_state: "auth_required", free_now: null, pacing_badge_text: "Login required", pacing_badge_text_key: "srv_badge_login" },
     { email: "idle@x.io", state_code: "AUTH", auth_state: "expired_idle", free_now: null },
   ];
   const opp = computeOpportunity(rows, [], now);
@@ -614,12 +619,15 @@ test("others lists every account not in another list, actionable lists untouched
   assert.deepEqual(opp.others.map((x) => x.email), ["dev@x.io", "cap@x.io", "auth@x.io"]);
   const dev = opp.others[0];
   assert.equal(dev.kind, "no_action");
-  assert.match(dev.text, /^Chưa cần chuyển việc · 5% trống, reset /);
-  assert.match(dev.text, /còn 11m/);
+  assert.match(dev.text, /^No need to switch yet · 5% free, resets /);
+  assert.match(dev.text, /\(11m left\)/);
+  assert.equal(dev.text_key, "srv_other_no_action");
+  assert.equal(dev.text_params.left, 11 * 60000);
   assert.equal(opp.others[1].kind, "weekly_capped");
-  assert.match(opp.others[1].text, /^Chạm trần tuần/);
+  assert.match(opp.others[1].text, /^Weekly cap reached/);
   assert.equal(opp.others[2].kind, "unreadable");
-  assert.match(opp.others[2].text, /^Chưa đo được · Cần đăng nhập/);
+  assert.match(opp.others[2].text, /^Not measured yet · Login required/);
+  assert.deepEqual(opp.others[2].text_params, { reason: "srv_badge_login" });
   // every account is in exactly one place (expired_idle is rendered by the dashboard from the rows)
   const placed = [...opp.use_before_reset, ...opp.fresh_now, ...opp.will_exhaust, ...opp.others].map((x) => x.email);
   assert.equal(new Set(placed).size, placed.length);
@@ -853,7 +861,8 @@ test("totals headline sums lower bounds and exposes the max", () => {
   const dev = opp.use_before_reset.find((x) => x.email === "dev@x.io");
   if (dev) {
     assert.equal(dev.uncertain, true);
-    assert.match(dev.text, /chưa chắc/);
+    assert.match(dev.text, /uncertain/);
+    assert.equal(dev.text_key, "srv_opp_waste_maybe");
   }
 });
 
@@ -907,7 +916,9 @@ test("machines: one row per (account, machine), counts ok/err, first seen kept, 
   assert.equal(m1.ip, "1.2.3.4");
   assert.equal(m1.country, "VN");
   assert.equal(row.machines[0].machine_id, "m1", "newest report first");
-  assert.equal(row.machines.find((m) => m.machine_id === "unknown").name, "máy chưa rõ (client cũ)");
+  const unknownMachine = row.machines.find((m) => m.machine_id === "unknown");
+  assert.equal(unknownMachine.name, "unknown machine (old client)");
+  assert.equal(unknownMachine.name_key, "srv_machine_unknown");
   assert.equal(res.snapshot.total_machines, 3);
 });
 

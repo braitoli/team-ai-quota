@@ -48,6 +48,7 @@ export const GMT7_OFFSET_MS = 7 * HOUR_MS;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 import { DEFAULT_MACHINE_LABELS, buildDefaultSettings, resolveMachineLabel, resolveAccountLabel } from "./config.js";
+import { renderKey } from "./i18n.js";
 
 const TOKEN_STATES = new Set(["ok", "expired_idle", "auth_required"]);
 
@@ -152,6 +153,20 @@ export function formatDuration(ms) {
   const m = totalMins % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+
+const SRV_FMT = { time: formatHM, datetime: formatHMDM, dur: formatDuration };
+
+/**
+ * A user-facing text of the snapshot: `field` holds the English default and the client re-renders it in its
+ * language from `field_key` + `field_params` (raw values: numbers, epoch ms, durations in ms; see docs/api.md).
+ * The templates live in i18n.js (srv_* keys); spread the result into the object that owns the field.
+ */
+function txt(field, key, params = {}) {
+  return { [field]: renderKey(key, params, "en", SRV_FMT), [`${field}_key`]: key, [`${field}_params`]: params };
+}
+
+/** Clears the `field_key`/`field_params` pair when a plain value replaces a keyed text (e.g. in an overlay). */
+const noKey = (field) => ({ [`${field}_key`]: undefined, [`${field}_params`]: undefined });
 
 export function gmt7Hour(ts) {
   return gmt7Parts(ts).hour;
@@ -877,14 +892,18 @@ export function recentRate(samples, resetsAt, now) {
   return Math.max(0, num / den);
 }
 
-const AUTH_LABELS = {
-  expired_idle: "Token hết hạn do lâu không dùng (nhiều khả năng đang rảnh)",
-  auth_required: "Cần đăng nhập lại",
-  error: "Lỗi đọc quota từ máy khách — chưa rõ hạn mức",
+const AUTH_LABEL_KEYS = {
+  expired_idle: "srv_auth_expired_idle",
+  auth_required: "srv_auth_required",
+  error: "srv_auth_error",
 };
 
+export function authLabelKey(state) {
+  return AUTH_LABEL_KEYS[state] || AUTH_LABEL_KEYS.error;
+}
+
 export function authLabel(state) {
-  return AUTH_LABELS[state] || AUTH_LABELS.error;
+  return renderKey(authLabelKey(state), {}, "en");
 }
 
 /**
@@ -913,14 +932,14 @@ export function computeRow(s, samples, now) {
     // provider reset of the weekly quota inside the current week (null when none)
     reset_weekly_at: s.reset_weekly_ts && weekly.weekly_resets_at && s.reset_weekly_ts > weekly.weekly_resets_at - WEEK_MS ? toIso(s.reset_weekly_ts) : null,
     auth_state: s.auth_state || null,
-    auth_label: s.auth_state ? authLabel(s.auth_state) : null,
+    ...(s.auth_state ? txt("auth_label", authLabelKey(s.auth_state)) : { auth_label: null }),
     auth_at: toIso(s.auth_at),
     auth_error: s.auth_error || null,
     error_kind: s.error_kind || null,
     auth_warning: s.auth_warning
       ? {
         state: s.auth_warning.state,
-        label: authLabel(s.auth_warning.state),
+        ...txt("label", authLabelKey(s.auth_warning.state)),
         at: toIso(s.auth_warning.at),
         error: s.auth_warning.error || null,
         error_kind: s.auth_warning.error_kind || null,
@@ -975,8 +994,10 @@ export function computeRow(s, samples, now) {
       remaining_hours: activeKnown ? r1((resetsAt - now) / HOUR_MS) : null,
       window_start: activeKnown ? toIso(resetsAt - WINDOW_MS) : null,
       pacing_status: "moderate",
-      pacing_badge_text: s.auth_state === "expired_idle" ? "Token hết hạn" : "Cần đăng nhập",
-      prediction_text: `${authLabel(s.auth_state)} · số cuối: ${s.used === null ? "chưa có" : s.used + "%"}`,
+      ...txt("pacing_badge_text", s.auth_state === "expired_idle" ? "srv_badge_token_expired" : "srv_badge_login"),
+      ...(s.used === null
+        ? txt("prediction_text", "srv_pred_auth_none", { label: authLabelKey(s.auth_state) })
+        : txt("prediction_text", "srv_pred_auth", { label: authLabelKey(s.auth_state), used: s.used })),
     };
   }
 
@@ -1005,10 +1026,10 @@ export function computeRow(s, samples, now) {
       remaining_hours: until === null ? null : r1((until - now) / HOUR_MS),
       window_start: null,
       pacing_status: "danger",
-      pacing_badge_text: "Chạm trần tuần",
-      prediction_text: until === null
-        ? "Chạm trần tuần · hạn mức 5h tạm khóa tới khi quota tuần hồi phục"
-        : `Chạm trần tuần · hạn mức 5h tạm khóa, mở lại lúc ${formatHMDM(until)} (còn ${formatDuration(until - now)})`,
+      ...txt("pacing_badge_text", "srv_badge_weekly_cap"),
+      ...(until === null
+        ? txt("prediction_text", "srv_pred_cap_5h_locked")
+        : txt("prediction_text", "srv_pred_cap_5h_until", { until, left: until - now })),
       surplus_deficit_text: "0%",
     };
   }
@@ -1028,12 +1049,12 @@ export function computeRow(s, samples, now) {
       free_now: free,
       resets_at: null,
       resets_at_gmt7: "N/A",
-      resets_in: "Sẵn sàng",
+      ...txt("resets_in", "srv_ready"),
       remaining_hours: 0,
       window_start: null,
       pacing_status: "safe",
-      pacing_badge_text: "Sẵn sàng 100%",
-      prediction_text: "Sẵn sàng 100% · chu kỳ 5h chỉ bắt đầu khi dùng",
+      ...txt("pacing_badge_text", "srv_badge_ready"),
+      ...txt("prediction_text", "srv_pred_ready_5h"),
       surplus_deficit_text: "+100%",
     };
   }
@@ -1065,8 +1086,8 @@ export function computeRow(s, samples, now) {
       state_code: "COOLDOWN",
       free_now: 0,
       pacing_status: "danger",
-      pacing_badge_text: "Chạm trần 100%",
-      prediction_text: `Chạm trần 100% · hồi phục lúc ${formatHM(resetsAt)} (còn ${formatDuration(resetsAt - now)})`,
+      ...txt("pacing_badge_text", "srv_badge_cap"),
+      ...txt("prediction_text", "srv_pred_cap", { at: resetsAt, left: resetsAt - now }),
       surplus_deficit_text: "0%",
     };
   }
@@ -1104,11 +1125,11 @@ export function computeRow(s, samples, now) {
 
   let prediction;
   if (stale) {
-    prediction = `Không có báo cáo > 75 phút · giả định không dùng thêm, ~${r1(atRisk)}% sẽ mất lúc ${formatHM(resetsAt)}`;
+    prediction = txt("prediction_text", "srv_pred_stale", { waste: r1(atRisk), at: resetsAt });
   } else if (exhaustAt !== null) {
-    prediction = `Cạn lúc ${formatHM(exhaustAt)}, trước reset ${formatDuration(resetsAt - exhaustAt)}`;
+    prediction = txt("prediction_text", "srv_pred_exhaust", { at: exhaustAt, gap: resetsAt - exhaustAt });
   } else {
-    prediction = `Dự kiến ~${r1(projected)}% lúc reset ${formatHM(resetsAt)} · ~${r1(atRisk)}% sẽ mất nếu không dùng`;
+    prediction = txt("prediction_text", "srv_pred_projected", { proj: r1(projected), at: resetsAt, waste: r1(atRisk) });
   }
 
   return {
@@ -1134,8 +1155,8 @@ export function computeRow(s, samples, now) {
     burn_needed_per_h: r1(burnNeeded),
     elapsed_hours: r1(elapsedH),
     pacing_status: pacing,
-    pacing_badge_text: pacing === "danger" ? "Sắp cạn" : pacing === "moderate" ? "Dùng nhiều" : "Ổn định",
-    prediction_text: prediction,
+    ...txt("pacing_badge_text", pacing === "danger" ? "srv_badge_danger" : pacing === "moderate" ? "srv_badge_moderate" : "srv_badge_ok"),
+    ...prediction,
     surplus_deficit_text: rawProjection >= 100 ? `-${r1(rawProjection - 100)}%` : `+${r1(atRisk)}%`,
   };
 }
@@ -1169,8 +1190,8 @@ export function computeWeeklyRow(r, now) {
     return {
       ...common, ...nullMetrics,
       pacing_status: "moderate",
-      pacing_badge_text: "Chưa có số tuần",
-      prediction_text: "Client chưa báo quota tuần · đang hiện số của chu kỳ 5h, chưa có dự báo",
+      ...txt("pacing_badge_text", "srv_badge_no_weekly"),
+      ...txt("prediction_text", "srv_pred_no_weekly"),
     };
   }
 
@@ -1181,13 +1202,13 @@ export function computeWeeklyRow(r, now) {
       velocity: 0, raw_projection: 0, projected_percent: 0,
       state_code: "FRESH",
       used_percent: 0, remaining_percent: 100, free_now: 100,
-      resets_at: null, resets_at_gmt7: "N/A", resets_in: "Sẵn sàng", remaining_hours: null, window_start: null,
+      resets_at: null, resets_at_gmt7: "N/A", ...txt("resets_in", "srv_ready"), remaining_hours: null, window_start: null,
       weekly_capped: false,
       weekly_used: 0,
       weekly_resets_at: null,
       pacing_status: "safe",
-      pacing_badge_text: "Sẵn sàng 100%",
-      prediction_text: "Sẵn sàng 100% · chu kỳ tuần chỉ bắt đầu khi dùng",
+      ...txt("pacing_badge_text", "srv_badge_ready"),
+      ...txt("prediction_text", "srv_pred_ready_week"),
       surplus_deficit_text: "+100%",
       reset_passed_unverified: Boolean(r.last_valid_at && tsOf(r.last_valid_at) < resetsAt),
     };
@@ -1201,11 +1222,11 @@ export function computeWeeklyRow(r, now) {
       velocity: 0, raw_projection: used, projected_percent: used,
       state_code: used > 0 ? (capped ? "COOLDOWN" : "ACTIVE") : "FRESH",
       used_percent: used, remaining_percent: r1(Math.max(0, 100 - used)), free_now: capped ? 0 : r1(Math.max(0, 100 - used)),
-      resets_at: null, resets_at_gmt7: "N/A", resets_in: "Sẵn sàng", remaining_hours: null, window_start: null,
+      resets_at: null, resets_at_gmt7: "N/A", ...txt("resets_in", "srv_ready"), remaining_hours: null, window_start: null,
       weekly_capped: capped,
       pacing_status: capped ? "danger" : "safe",
-      pacing_badge_text: capped ? "Chạm trần tuần" : "Sẵn sàng 100%",
-      prediction_text: capped ? "Chạm trần tuần" : "Sẵn sàng 100% · chu kỳ tuần chỉ bắt đầu khi dùng",
+      ...txt("pacing_badge_text", capped ? "srv_badge_weekly_cap" : "srv_badge_ready"),
+      ...txt("prediction_text", capped ? "srv_badge_weekly_cap" : "srv_pred_ready_week"),
       surplus_deficit_text: capped ? "0%" : "+100%",
     };
   }
@@ -1217,6 +1238,7 @@ export function computeWeeklyRow(r, now) {
     resets_at: toIso(resetsAt),
     resets_at_gmt7: formatGmt7(resetsAt),
     resets_in: formatDuration(resetsAt - now),
+    ...noKey("resets_in"), // the 5h row may carry a "Ready" key
     remaining_hours: r1(remainingH),
     window_start: toIso(resetsAt - WEEK_MS),
   };
@@ -1226,8 +1248,8 @@ export function computeWeeklyRow(r, now) {
       ...common, ...nullMetrics, ...windowFields,
       velocity: 0, raw_projection: 100, projected_percent: 100,
       state_code: "COOLDOWN", free_now: 0, weekly_capped: true,
-      pacing_status: "danger", pacing_badge_text: "Chạm trần tuần",
-      prediction_text: `Chạm trần tuần ${r1(used)}% · hồi phục lúc ${formatHMDM(resetsAt)} (còn ${formatDuration(resetsAt - now)})`,
+      pacing_status: "danger", ...txt("pacing_badge_text", "srv_badge_weekly_cap"),
+      ...txt("prediction_text", "srv_pred_week_capped", { used: r1(used), at: resetsAt, left: resetsAt - now }),
       surplus_deficit_text: "0%",
     };
   }
@@ -1261,11 +1283,11 @@ export function computeWeeklyRow(r, now) {
 
   let prediction;
   if (r.stale) {
-    prediction = `Không có báo cáo > 75 phút · giả định không dùng thêm, ~${r1(atRisk)}% sẽ mất lúc ${formatHMDM(resetsAt)}`;
+    prediction = txt("prediction_text", "srv_pred_stale_dt", { waste: r1(atRisk), at: resetsAt });
   } else if (exhaustAt !== null) {
-    prediction = `Cạn lúc ${formatHMDM(exhaustAt)}, trước reset ${formatDuration(resetsAt - exhaustAt)}`;
+    prediction = txt("prediction_text", "srv_pred_exhaust_dt", { at: exhaustAt, gap: resetsAt - exhaustAt });
   } else {
-    prediction = `Dự kiến ~${r1(projected)}% lúc reset ${formatHMDM(resetsAt)} · ~${r1(atRisk)}% sẽ mất nếu không dùng`;
+    prediction = txt("prediction_text", "srv_pred_projected_dt", { proj: r1(projected), at: resetsAt, waste: r1(atRisk) });
   }
 
   return {
@@ -1289,8 +1311,8 @@ export function computeWeeklyRow(r, now) {
     burn_needed_per_h: r1(burnNeeded),
     elapsed_hours: r1(elapsedH),
     pacing_status: pacing,
-    pacing_badge_text: pacing === "danger" ? "Sắp cạn" : pacing === "moderate" ? "Dùng nhiều" : "Ổn định",
-    prediction_text: prediction,
+    ...txt("pacing_badge_text", pacing === "danger" ? "srv_badge_danger" : pacing === "moderate" ? "srv_badge_moderate" : "srv_badge_ok"),
+    ...prediction,
     surplus_deficit_text: rawProjection >= 100 ? `-${r1(rawProjection - 100)}%` : `+${r1(atRisk)}%`,
   };
 }
@@ -1476,7 +1498,7 @@ export function computeHeatmap(states, windows, gaps, now) {
     }));
   return {
     heatmap: {
-      unit: "% của một chu kỳ 5h, trung bình mỗi ngày",
+      ...txt("unit", "srv_heatmap_unit"),
       span_days: 14,
       accounts,
       team: teamValues,
@@ -1532,9 +1554,9 @@ export function computeOpportunity(rows, states, now) {
         stale: r.stale,
         score: wasteLo(r) / Math.max(remH, 0.25),
         score_max: r.at_risk_waste / Math.max(remH, 0.25),
-        text: r.uncertain
-          ? `Có thể thừa ${wasteLo(r)}–${r.at_risk_waste}% lúc ${formatHM(resetTs)} (còn ${formatDuration(resetTs - now)}) · chưa chắc, dữ liệu còn mỏng`
-          : `~${r.at_risk_waste}% sẽ mất lúc ${formatHM(resetTs)} (còn ${formatDuration(resetTs - now)}) — cần đốt ~${r1(burn)}%/h để dùng hết`,
+        ...(r.uncertain
+          ? txt("text", "srv_opp_waste_maybe", { lo: wasteLo(r), hi: r.at_risk_waste, at: resetTs, left: resetTs - now })
+          : txt("text", "srv_opp_waste", { waste: r.at_risk_waste, at: resetTs, left: resetTs - now, burn: r1(burn) })),
       };
     })
     .sort((a, b) => (b.score - a.score) || (b.score_max - a.score_max))
@@ -1552,9 +1574,9 @@ export function computeOpportunity(rows, states, now) {
         idle_since_hm: idleFrom === null ? null : formatHMDM(idleFrom),
         idle_hours: idleMs === null ? null : r1(idleMs / HOUR_MS),
         stale: r.stale,
-        text: idleFrom === null
-          ? "Sẵn sàng 100% · chưa rõ rảnh từ lúc nào"
-          : `Sẵn sàng 100% · rảnh từ ${formatHMDM(idleFrom)} (~${formatDuration(idleMs)})`,
+        ...(idleFrom === null
+          ? txt("text", "srv_opp_ready_unknown")
+          : txt("text", "srv_opp_ready_idle", { since: idleFrom, idle: idleMs })),
       };
     })
     .sort((a, b) => (b.idle_hours === null ? -1 : b.idle_hours) - (a.idle_hours === null ? -1 : a.idle_hours));
@@ -1584,9 +1606,13 @@ export function computeOpportunity(rows, states, now) {
       const reset = tsOf(r.resets_at);
       const alt = alternatives(r);
       const past = ex <= now;
-      const head = past
-        ? `Có thể đã cạn lúc ${formatHM(ex)}, reset lúc ${formatHM(reset)}`
-        : `Cạn lúc ${formatHM(ex)}, trước reset ${formatDuration(reset - ex)}`;
+      const text = past
+        ? (alt
+          ? txt("text", "srv_opp_exhausted_maybe_alt", { at: ex, reset, email: alt.email, free: alt.free_now })
+          : txt("text", "srv_opp_exhausted_maybe", { at: ex, reset }))
+        : (alt
+          ? txt("text", "srv_opp_exhaust_alt", { at: ex, gap: reset - ex, email: alt.email, free: alt.free_now })
+          : txt("text", "srv_pred_exhaust", { at: ex, gap: reset - ex }));
       return {
         ...ident(r),
         exhaust_at: r.exhaust_at,
@@ -1596,7 +1622,7 @@ export function computeOpportunity(rows, states, now) {
         hours_before_reset: r1((reset - ex) / HOUR_MS),
         confidence: r.confidence,
         alternative: alt,
-        text: alt ? `${head} → chuyển sang ${alt.email} (${alt.free_now}% trống)` : head,
+        ...text,
       };
     })
     .sort((a, b) => tsOf(a.exhaust_at) - tsOf(b.exhaust_at));
@@ -1608,26 +1634,28 @@ export function computeOpportunity(rows, states, now) {
     .filter((r) => !listed.has(keyOf(r)) && !(r.state_code === "AUTH" && r.auth_state === "expired_idle"))
     .map((r) => {
       const reset = tsOf(r.resets_at);
-      const when = reset === null ? "" : `${formatHM(reset)} (còn ${formatDuration(reset - now)})`;
+      const at = reset;
+      const left = reset === null ? null : reset - now;
+      const sfx = r.stale && r.state_code !== "AUTH" ? "srv_sfx_signal_lost" : null;
       let kind;
       let text;
       if (r.state_code === "AUTH") {
         kind = "unreadable";
-        text = `Chưa đo được · ${r.pacing_badge_text || "cần đăng nhập"}`;
+        // rows stored before the *_key fields existed have no badge key: every unreadable row listed here needs a login
+        text = txt("text", "srv_other_unreadable", { reason: r.pacing_badge_text_key || "srv_att_login" });
       } else if (r.weekly_capped) {
         kind = "weekly_capped";
-        text = reset === null ? "Chạm trần tuần" : `Chạm trần tuần · mở lại lúc ${formatHMDM(reset)} (còn ${formatDuration(reset - now)})`;
+        text = reset === null ? txt("text", "srv_other_weekly_cap", { sfx }) : txt("text", "srv_other_weekly_cap_until", { at, left, sfx });
       } else if (r.state_code === "COOLDOWN") {
         kind = "cooldown";
-        text = `Hết quota 5h · mở lại lúc ${when}`;
+        text = txt("text", "srv_other_cooldown", { at, left, sfx });
       } else if (r.state_code === "FRESH") {
         kind = "idle";
-        text = "Sẵn sàng 100% · chu kỳ 5h chưa mở";
+        text = txt("text", "srv_other_idle", { sfx });
       } else {
         kind = "no_action";
-        text = `Chưa cần chuyển việc · ${r.free_now}% trống, reset ${when}`;
+        text = txt("text", "srv_other_no_action", { free: r.free_now, at, left, sfx });
       }
-      if (r.stale && r.state_code !== "AUTH") text += " · mất tín hiệu";
       return {
         ...ident(r),
         kind,
@@ -1639,7 +1667,7 @@ export function computeOpportunity(rows, states, now) {
         resets_at_hm: reset === null ? null : formatHM(reset),
         remaining_hours: reset === null ? null : r1(Math.max(0, (reset - now) / HOUR_MS)),
         stale: r.stale,
-        text,
+        ...text,
       };
     })
     .sort((a, b) => ((b.free_now ?? -1) - (a.free_now ?? -1)) || a.email.localeCompare(b.email));
@@ -1733,7 +1761,7 @@ const STATE_ORDER = { FRESH: 0, ACTIVE: 1, COOLDOWN: 2, AUTH: 3 };
 // ---------------------------------------------------------------------------
 
 export const UNKNOWN_MACHINE = "unknown";
-export const UNKNOWN_MACHINE_NAME = "máy chưa rõ (client cũ)";
+export const UNKNOWN_MACHINE_NAME = "unknown machine (old client)";
 export const MACHINE_ONLINE_MS = 20 * MINUTE_MS;
 export const MACHINE_IDLE_MS = 2 * HOUR_MS;
 /** A machine is "high intensity" from this many tokens (input + output + cache creation) in the last hour. */
@@ -1775,6 +1803,17 @@ export function matchKnownMachine(m, customMap = {}) {
 export function cleanMachineName(name) {
   if (!name) return "";
   return String(name).trim().replace(/\.local$/i, "").trim();
+}
+
+/**
+ * Display name of a machine that has no known label: the name the client sent, else a placeholder.
+ * Placeholders carry an i18n key (`name_key`/`name_params`); client-sent names are never translated.
+ */
+function machineDisplayName(knownLabel, clientName, machineId) {
+  if (knownLabel) return { name: knownLabel };
+  if (machineId === UNKNOWN_MACHINE && (!clientName || clientName === UNKNOWN_MACHINE_NAME)) return txt("name", "srv_machine_unknown");
+  if (clientName) return { name: clientName };
+  return txt("name", "srv_machine_fallback", { id: String(machineId).slice(0, 6) });
 }
 
 /** Normalized identity key for a physical machine across reports and accounts. */
@@ -1825,7 +1864,8 @@ export function nextMachineRow(prev, report, now) {
     };
   row.last_seen_ts = now;
   if (report.machine_name) row.machine_name = cleanMachineName(report.machine_name);
-  if (!row.machine_name && id === UNKNOWN_MACHINE) row.machine_name = UNKNOWN_MACHINE_NAME;
+  // also rewrites a placeholder stored by an earlier version (it was a Vietnamese text)
+  if (id === UNKNOWN_MACHINE && !report.machine_name) row.machine_name = UNKNOWN_MACHINE_NAME;
   if (report.os) row.os = report.os;
   if (report.client_version) row.client_version = report.client_version;
   if (report.update_status) row.update_status = String(report.update_status).slice(0, 80);
@@ -1928,12 +1968,12 @@ export function machinesForSnapshot(machines, now, labels = {}) {
 
     const knownLabel = matchKnownMachine(m, labels);
     const cName = cleanMachineName(m.machine_name);
-    const name = knownLabel || cName || (m.machine_id === UNKNOWN_MACHINE ? UNKNOWN_MACHINE_NAME : "máy " + String(m.machine_id).slice(0, 6));
+    const shown = machineDisplayName(knownLabel, cName, m.machine_id);
 
     const obj = {
       machine_id: m.machine_id,
       id_short: knownLabel || (m.machine_id === UNKNOWN_MACHINE ? "—" : String(m.machine_id).slice(0, 6)),
-      name,
+      ...shown,
       raw_name: knownLabel ? null : (cName || null),
       known_label: knownLabel || null,
       os: m.os || null,
@@ -2018,7 +2058,11 @@ export function computeMachineStats(machines = [], rows = [], samples = [], now 
     else if (diff <= MACHINE_IDLE_MS) connectivity = "idle";
     else connectivity = "offline";
 
-    const mappedName = matchKnownMachine(latest, labels) || cleanMachineName(latest.name || latest.machine_name) || latest.machine_id;
+    const knownName = matchKnownMachine(latest, labels);
+    const clientName = cleanMachineName(latest.name || latest.machine_name);
+    const shownName = !knownName && latest.machine_id === UNKNOWN_MACHINE && clientName === UNKNOWN_MACHINE_NAME
+      ? txt("name", "srv_machine_unknown")
+      : { name: knownName || clientName || latest.machine_id };
 
     const touchedMap = new Map();
     const tokensBy = new Map();
@@ -2070,33 +2114,33 @@ export function computeMachineStats(machines = [], rows = [], samples = [], now 
     const tokens1h = latestTelemetry && Number.isFinite(latestTelemetry.tokens_1h) ? latestTelemetry.tokens_1h : null;
     const msgs1h = latestTelemetry && Number.isFinite(latestTelemetry.msgs_1h) ? latestTelemetry.msgs_1h : null;
     let intensity = "idle";
-    let intensityLabel = "Nhàn rỗi";
+    let intensityKey = "srv_int_idle";
     if (connectivity === "online") {
       if (tokens1h === null) {
         intensity = "unknown";
-        intensityLabel = "Chưa đủ dữ liệu";
+        intensityKey = "srv_int_unknown";
       } else if (tokens1h >= MACHINE_HIGH_TOKENS_1H) {
         intensity = "high";
-        intensityLabel = "Cường độ cao";
+        intensityKey = "srv_int_high";
       } else if (tokens1h > 0) {
         intensity = "moderate";
-        intensityLabel = "Đang chạy";
+        intensityKey = "srv_int_running";
       } else {
         intensity = "idle";
-        intensityLabel = "Chờ lệnh";
+        intensityKey = "srv_int_waiting";
       }
     } else if (connectivity === "idle") {
       intensity = "idle";
-      intensityLabel = "Tạm nghỉ";
+      intensityKey = "srv_int_rest";
     } else {
       intensity = "offline";
-      intensityLabel = "Ngoại tuyến";
+      intensityKey = "srv_int_offline";
     }
 
     out.push({
       identity_key: key,
       machine_id: latest.machine_id,
-      name: mappedName,
+      ...shownName,
       os: latest.os || "Unknown",
       connectivity,
       last_seen: toIso(latest.last_seen_ts),
@@ -2110,7 +2154,7 @@ export function computeMachineStats(machines = [], rows = [], samples = [], now 
       usage_tokens_1h: tokens1h,
       usage_msgs_1h: msgs1h,
       intensity,
-      intensity_label: intensityLabel,
+      ...txt("intensity_label", intensityKey),
       accounts_touched: accountsTouched,
       telemetry: latestTelemetry,
     });
@@ -2161,11 +2205,10 @@ function publicRow(s, poolLabels, now) {
         r.remaining_percent = 100;
         r.resets_at = null;
         r.resets_at_gmt7 = "N/A";
-        r.resets_in = "Sẵn sàng";
+        Object.assign(r, txt("resets_in", "srv_ready"));
         r.remaining_hours = 0;
         r.pacing_status = "safe";
-        r.pacing_badge_text = "Sẵn sàng 100%";
-        r.prediction_text = "Sẵn sàng 100% · chu kỳ tuần đã làm mới";
+        Object.assign(r, txt("pacing_badge_text", "srv_badge_ready"), txt("prediction_text", "srv_pred_week_refreshed"));
         r.surplus_deficit_text = "+100%";
       }
       if (s.last_valid_at && s.last_valid_at < wTs) {
@@ -2181,10 +2224,10 @@ function publicRow(s, poolLabels, now) {
         r.resets_in = formatDuration(rTs - now);
         r.remaining_hours = r1((rTs - now) / HOUR_MS);
         if (r.state_code === "COOLDOWN") {
-          r.prediction_text = `Chạm trần 100% · hồi phục lúc ${formatHM(rTs)} (còn ${formatDuration(rTs - now)})`;
+          Object.assign(r, txt("prediction_text", "srv_pred_cap", { at: rTs, left: rTs - now }));
         }
       } else {
-        r.resets_in = "Sẵn sàng";
+        Object.assign(r, txt("resets_in", "srv_ready"));
         r.remaining_hours = 0;
         if (r.state_code === "COOLDOWN" && !r.weekly_capped) {
           r.state_code = "FRESH";
@@ -2194,8 +2237,7 @@ function publicRow(s, poolLabels, now) {
           r.resets_at = null;
           r.resets_at_gmt7 = "N/A";
           r.pacing_status = "safe";
-          r.pacing_badge_text = "Sẵn sàng 100%";
-          r.prediction_text = "Sẵn sàng 100% · chu kỳ 5h chỉ bắt đầu khi dùng";
+          Object.assign(r, txt("pacing_badge_text", "srv_badge_ready"), txt("prediction_text", "srv_pred_ready_5h"));
           r.surplus_deficit_text = "+100%";
           if (s.last_valid_at && s.last_valid_at < rTs) {
             r.reset_passed_unverified = true;
@@ -2364,7 +2406,7 @@ function emptyAggregates() {
   return {
     totals: computeTotals([], { will_exhaust: [] }),
     opportunity: { use_before_reset: [], fresh_now: [], will_exhaust: [], others: [], timeline_12h: { from: null, to: null, lanes: [] } },
-    heatmap: { unit: "% của một chu kỳ 5h, trung bình mỗi ngày", span_days: 14, accounts: [], team: new Array(24).fill(0) },
+    heatmap: { ...txt("unit", "srv_heatmap_unit"), span_days: 14, accounts: [], team: new Array(24).fill(0) },
     golden_hours: [],
     history_14d: { days: [], daily: [], windows: [] },
     history_weekly: { weeks: [] },

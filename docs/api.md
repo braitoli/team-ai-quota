@@ -85,6 +85,12 @@ Response headers: `ETag: "<version>"`, `Cache-Control: private, no-store`. JSON 
 
 Giữ nguyên tên trường cũ, thêm trường mới. Mọi `%` là "% của chu kỳ 5h của tài khoản đó" trừ khi có tiền tố `weekly_`.
 
+**Văn bản do server sinh ra** (`prediction_text`, `pacing_badge_text`, `auth_label`, `resets_in` khi sẵn sàng, `text` trong
+`opportunity`, `intensity_label`, `heatmap.unit`, `name` của máy không có tên...) là **tiếng Anh**. Mỗi trường như vậy có thêm
+`<trường>_key` (khoá i18n, `srv_*` trong `src/i18n.js`) và `<trường>_params` (giá trị thô: số, mốc thời gian epoch ms, khoảng
+thời gian tính bằng ms, email). Dashboard dựng lại câu theo ngôn ngữ đang chọn từ khoá + tham số; client khác cứ đọc trường văn
+bản như cũ. Tên máy do client gửi không bao giờ bị dịch.
+
 - Trường cũ: `email`, `used_percent`, `remaining_percent`, `resets_in`, `resets_at_gmt7`, `last_updated_ago`,
   `last_updated_gmt7`, `status` (`online` nếu báo cáo ≤ 75 phút, ngược lại `offline`), `velocity` (%/h),
   `projected_percent`, `pacing_status` (`safe`|`moderate`|`danger`), `prediction_text`, `history`
@@ -113,7 +119,7 @@ Giữ nguyên tên trường cũ, thêm trường mới. Mọi `%` là "% của 
   first_seen, last_seen, last_valid, reports_ok, reports_err, last_error_kind, last_error_at, client_version, ip, country,
   last_used_percent, status}`, `status` = `ok` | `silent` (không có số đo hợp lệ > 75 phút) | `error` (lần báo gần nhất là lỗi).
   Quota tính theo tài khoản, nên danh sách này cho biết máy nào **đo** tài khoản, không phải máy nào đã tiêu bao nhiêu. Client cũ
-  không có `machine_id` được gom thành một máy `unknown` ("máy chưa rõ (client cũ)"). `ip` lấy từ header `CF-Connecting-IP`,
+  không có `machine_id` được gom thành một máy `unknown` (`name` = "unknown machine (old client)", kèm `name_key`). `ip` lấy từ header `CF-Connecting-IP`,
   `country` từ `request.cf.country`; chỉ nằm trong snapshot, cần key để đọc. Cấp snapshot có thêm `total_machines`.
 - `idle_since` (FRESH: rảnh từ lúc nào, `null` nếu chưa rõ), `window_start`, `remaining_hours`, `stale`,
   `client_version`, `last_report_at`, `last_valid_at`.
@@ -249,7 +255,7 @@ Mỗi provider một Durable Object + một snapshot riêng: `claude` (mặc đ�
   - dòng thành `state_code: "COOLDOWN"`, `five_hour_disabled: true`, `weekly_capped: true`, `weekly_warning: false`,
     `used_percent: 100`, `free_now: 0`, `at_risk_waste: 0`, `resets_at` = `weekly_resets_at` = mốc reset tuần của pool
     (lấy từ `limits`; thiếu thì giữ mốc trước nếu còn ở tương lai, không thì `null` → `resets_in: "N/A"`),
-    `window_start: null`, `pacing_badge_text: "Chạm trần tuần"`;
+    `window_start: null`, `pacing_badge_text: "Weekly cap reached"` (+ `pacing_badge_text_key: "srv_badge_weekly_cap"`);
   - bị loại khỏi gợi ý và tổng như mọi dòng chạm trần tuần. Khi qua mốc reset tuần, chuyển cứng sang `FRESH` ở lần POST
     bất kỳ kế tiếp; báo cáo 5h bình thường kế tiếp cũng xoá cờ.
 - Response thêm `provider`; `record` thêm `account_key`, `provider`, `pool` (báo lỗi agy không pool: `record` là của

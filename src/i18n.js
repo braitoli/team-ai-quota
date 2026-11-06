@@ -431,6 +431,65 @@ export const TRANSLATIONS = {
     c_ph_new_email: "New account email...",
     c_ph_new_acct_label: "Account label (e.g. Claude VIP)...",
     c_saving: "Saving...",
+    // Server-generated texts (src/analytics.js sends <field>_key + <field>_params; see docs/api.md).
+    // Placeholders: {x} plain, {x:time} HH:mm GMT+7, {x:datetime} HH:mm DD/MM, {x:dur} ms as 1h 10m, {x:key} another key.
+    srv_auth_expired_idle: "Token expired from inactivity (most likely idle)",
+    srv_auth_required: "Login required again",
+    srv_auth_error: "Could not read quota from the client — limit unknown",
+    srv_badge_token_expired: "Token expired",
+    srv_badge_login: "Login required",
+    srv_badge_weekly_cap: "Weekly cap reached",
+    srv_badge_ready: "Ready 100%",
+    srv_badge_cap: "Capped 100%",
+    srv_badge_danger: "Running low",
+    srv_badge_moderate: "Heavy use",
+    srv_badge_ok: "Steady",
+    srv_badge_no_weekly: "No weekly figure",
+    srv_att_login: "login required",
+    srv_ready: "Ready",
+    srv_sfx_signal_lost: " · signal lost",
+    srv_pred_auth: "{label:key} · last figure: {used}%",
+    srv_pred_auth_none: "{label:key} · last figure: none",
+    srv_pred_cap_5h_locked: "Weekly cap reached · 5h limit locked until the weekly quota recovers",
+    srv_pred_cap_5h_until: "Weekly cap reached · 5h limit locked, reopens at {until:datetime} ({left:dur} left)",
+    srv_pred_ready_5h: "Ready 100% · the 5h cycle only starts when used",
+    srv_pred_cap: "Capped 100% · recovers at {at:time} ({left:dur} left)",
+    srv_pred_stale: "No report for over 75 min · assuming no further use, ~{waste}% will be lost at {at:time}",
+    srv_pred_stale_dt: "No report for over 75 min · assuming no further use, ~{waste}% will be lost at {at:datetime}",
+    srv_pred_exhaust: "Runs out at {at:time}, {gap:dur} before reset",
+    srv_pred_exhaust_dt: "Runs out at {at:datetime}, {gap:dur} before reset",
+    srv_pred_projected: "Projected ~{proj}% at reset {at:time} · ~{waste}% will be lost if unused",
+    srv_pred_projected_dt: "Projected ~{proj}% at reset {at:datetime} · ~{waste}% will be lost if unused",
+    srv_pred_no_weekly: "The client has not reported the weekly quota · showing the 5h cycle figures, no forecast yet",
+    srv_pred_ready_week: "Ready 100% · the weekly cycle only starts when used",
+    srv_pred_week_refreshed: "Ready 100% · the weekly cycle has refreshed",
+    srv_pred_week_capped: "Weekly cap reached {used}% · recovers at {at:datetime} ({left:dur} left)",
+    srv_opp_waste_maybe: "May have {lo}–{hi}% left over at {at:time} ({left:dur} left) · uncertain, data still thin",
+    srv_opp_waste: "~{waste}% will be lost at {at:time} ({left:dur} left) — burn ~{burn}%/h to use it all",
+    srv_opp_ready_unknown: "Ready 100% · unknown since when it has been idle",
+    srv_opp_ready_idle: "Ready 100% · idle since {since:datetime} (~{idle:dur})",
+    srv_opp_exhausted_maybe: "May have run out at {at:time}, resets at {reset:time}",
+    srv_opp_exhausted_maybe_alt: "May have run out at {at:time}, resets at {reset:time} → switch to {email} ({free}% free)",
+    srv_opp_exhaust_alt: "Runs out at {at:time}, {gap:dur} before reset → switch to {email} ({free}% free)",
+    srv_other_unreadable: "Not measured yet · {reason:key}",
+    srv_other_weekly_cap: "Weekly cap reached{sfx:key}",
+    srv_other_weekly_cap_until: "Weekly cap reached · reopens at {at:datetime} ({left:dur} left){sfx:key}",
+    srv_other_cooldown: "Out of 5h quota · reopens at {at:time} ({left:dur} left){sfx:key}",
+    srv_other_idle: "Ready 100% · 5h cycle not started{sfx:key}",
+    srv_other_no_action: "No need to switch yet · {free}% free, resets {at:time} ({left:dur} left){sfx:key}",
+    srv_heatmap_unit: "% of one 5h cycle, daily average",
+    srv_machine_unknown: "unknown machine (old client)",
+    srv_machine_fallback: "machine {id}",
+    srv_int_idle: "Idle",
+    srv_int_unknown: "Not enough data",
+    srv_int_high: "High intensity",
+    srv_int_running: "Running",
+    srv_int_waiting: "Awaiting commands",
+    srv_int_rest: "Resting",
+    srv_int_offline: "Offline",
+    srv_err_bad_provider: "Invalid provider",
+    srv_err_server: "Server error",
+    srv_err_server_detail: "Could not read the data.",
   },
 
   vi: {
@@ -835,6 +894,65 @@ export const TRANSLATIONS = {
     c_ph_new_email: "Email tài khoản mới...",
     c_ph_new_acct_label: "Nhãn tài khoản (vd: Claude VIP)...",
     c_saving: "Đang lưu...",
+    // Server-generated texts (src/analytics.js sends <field>_key + <field>_params; see docs/api.md).
+    // Placeholders: {x} plain, {x:time} HH:mm GMT+7, {x:datetime} HH:mm DD/MM, {x:dur} ms as 1h 10m, {x:key} another key.
+    srv_auth_expired_idle: "Token hết hạn do lâu không dùng (nhiều khả năng đang rảnh)",
+    srv_auth_required: "Cần đăng nhập lại",
+    srv_auth_error: "Lỗi đọc quota từ máy khách — chưa rõ hạn mức",
+    srv_badge_token_expired: "Token hết hạn",
+    srv_badge_login: "Cần đăng nhập",
+    srv_badge_weekly_cap: "Chạm trần tuần",
+    srv_badge_ready: "Sẵn sàng 100%",
+    srv_badge_cap: "Chạm trần 100%",
+    srv_badge_danger: "Sắp cạn",
+    srv_badge_moderate: "Dùng nhiều",
+    srv_badge_ok: "Ổn định",
+    srv_badge_no_weekly: "Chưa có số tuần",
+    srv_att_login: "cần đăng nhập",
+    srv_ready: "Sẵn sàng",
+    srv_sfx_signal_lost: " · mất tín hiệu",
+    srv_pred_auth: "{label:key} · số cuối: {used}%",
+    srv_pred_auth_none: "{label:key} · số cuối: chưa có",
+    srv_pred_cap_5h_locked: "Chạm trần tuần · hạn mức 5h tạm khóa tới khi quota tuần hồi phục",
+    srv_pred_cap_5h_until: "Chạm trần tuần · hạn mức 5h tạm khóa, mở lại lúc {until:datetime} (còn {left:dur})",
+    srv_pred_ready_5h: "Sẵn sàng 100% · chu kỳ 5h chỉ bắt đầu khi dùng",
+    srv_pred_cap: "Chạm trần 100% · hồi phục lúc {at:time} (còn {left:dur})",
+    srv_pred_stale: "Không có báo cáo > 75 phút · giả định không dùng thêm, ~{waste}% sẽ mất lúc {at:time}",
+    srv_pred_stale_dt: "Không có báo cáo > 75 phút · giả định không dùng thêm, ~{waste}% sẽ mất lúc {at:datetime}",
+    srv_pred_exhaust: "Cạn lúc {at:time}, trước reset {gap:dur}",
+    srv_pred_exhaust_dt: "Cạn lúc {at:datetime}, trước reset {gap:dur}",
+    srv_pred_projected: "Dự kiến ~{proj}% lúc reset {at:time} · ~{waste}% sẽ mất nếu không dùng",
+    srv_pred_projected_dt: "Dự kiến ~{proj}% lúc reset {at:datetime} · ~{waste}% sẽ mất nếu không dùng",
+    srv_pred_no_weekly: "Client chưa báo quota tuần · đang hiện số của chu kỳ 5h, chưa có dự báo",
+    srv_pred_ready_week: "Sẵn sàng 100% · chu kỳ tuần chỉ bắt đầu khi dùng",
+    srv_pred_week_refreshed: "Sẵn sàng 100% · chu kỳ tuần đã làm mới",
+    srv_pred_week_capped: "Chạm trần tuần {used}% · hồi phục lúc {at:datetime} (còn {left:dur})",
+    srv_opp_waste_maybe: "Có thể thừa {lo}–{hi}% lúc {at:time} (còn {left:dur}) · chưa chắc, dữ liệu còn mỏng",
+    srv_opp_waste: "~{waste}% sẽ mất lúc {at:time} (còn {left:dur}) — cần đốt ~{burn}%/h để dùng hết",
+    srv_opp_ready_unknown: "Sẵn sàng 100% · chưa rõ rảnh từ lúc nào",
+    srv_opp_ready_idle: "Sẵn sàng 100% · rảnh từ {since:datetime} (~{idle:dur})",
+    srv_opp_exhausted_maybe: "Có thể đã cạn lúc {at:time}, reset lúc {reset:time}",
+    srv_opp_exhausted_maybe_alt: "Có thể đã cạn lúc {at:time}, reset lúc {reset:time} → chuyển sang {email} ({free}% trống)",
+    srv_opp_exhaust_alt: "Cạn lúc {at:time}, trước reset {gap:dur} → chuyển sang {email} ({free}% trống)",
+    srv_other_unreadable: "Chưa đo được · {reason:key}",
+    srv_other_weekly_cap: "Chạm trần tuần{sfx:key}",
+    srv_other_weekly_cap_until: "Chạm trần tuần · mở lại lúc {at:datetime} (còn {left:dur}){sfx:key}",
+    srv_other_cooldown: "Hết quota 5h · mở lại lúc {at:time} (còn {left:dur}){sfx:key}",
+    srv_other_idle: "Sẵn sàng 100% · chu kỳ 5h chưa mở{sfx:key}",
+    srv_other_no_action: "Chưa cần chuyển việc · {free}% trống, reset {at:time} (còn {left:dur}){sfx:key}",
+    srv_heatmap_unit: "% của một chu kỳ 5h, trung bình mỗi ngày",
+    srv_machine_unknown: "máy chưa rõ (client cũ)",
+    srv_machine_fallback: "máy {id}",
+    srv_int_idle: "Nhàn rỗi",
+    srv_int_unknown: "Chưa đủ dữ liệu",
+    srv_int_high: "Cường độ cao",
+    srv_int_running: "Đang chạy",
+    srv_int_waiting: "Chờ lệnh",
+    srv_int_rest: "Tạm nghỉ",
+    srv_int_offline: "Ngoại tuyến",
+    srv_err_bad_provider: "Provider không hợp lệ",
+    srv_err_server: "Lỗi máy chủ",
+    srv_err_server_detail: "Không đọc được số liệu.",
   },
 
   "zh-CN": {
@@ -3787,4 +3905,35 @@ export function t(key, params = {}, lang = DEFAULT_LANG) {
     }
   }
   return text;
+}
+
+
+/**
+ * Fill a server-text template. The API sends `<field>_key` + `<field>_params` (raw values); the receiver
+ * looks the key up in its language and calls this. Placeholders:
+ *   {name}       String(params.name)
+ *   {name:kind}  fmt[kind](params.name), for kind = time | datetime | dur (formatters supplied by the caller)
+ *   {name:key}   the template of the dictionary key params.name ("" when empty), via lookup(key)
+ * A placeholder without a matching param is left as written. Self-contained on purpose: dashboard.js
+ * inlines this function into the page via Function.prototype.toString().
+ */
+export function formatTemplate(str, params, fmt, lookup) {
+  return String(str).replace(/\{([A-Za-z0-9_]+)(?::([a-z]+))?\}/g, function (m, name, kind) {
+    if (!params || !Object.prototype.hasOwnProperty.call(params, name)) return m;
+    var v = params[name];
+    if (kind === "key") return v ? String(lookup(v)) : "";
+    if (kind && fmt && typeof fmt[kind] === "function") return fmt[kind](v);
+    return String(v);
+  });
+}
+
+/** Render a server text key in `lang` (en for keys a language lacks). Node-side twin of the dashboard's sv(). */
+export function renderKey(key, params, lang = DEFAULT_LANG, fmt = {}) {
+  const lookup = (k) => {
+    const d = TRANSLATIONS[lang];
+    if (d && d[k] != null) return d[k];
+    const e = TRANSLATIONS[DEFAULT_LANG][k];
+    return e != null ? e : k;
+  };
+  return formatTemplate(lookup(key), params, fmt, lookup);
 }
