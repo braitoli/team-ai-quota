@@ -15,6 +15,9 @@
 
 ## Why teams need this (not for individuals)
 
+![Why teams need this: bottlenecks and wasted capacity, seat collisions, and the team-level solution (AI-generated infographic)](docs/assets/why-teams-en.png)
+
+
 Individual quota monitors and local status bar extensions only observe a single developer on a single workstation. When engineering teams and enterprises scale their adoption of AI coding subscriptions (Claude Code Max/Pro, OpenAI Codex, Antigravity, Gemini CLI, GitHub Copilot, Cursor Agent), engineering leadership faces three critical operational dilemmas:
 
 ### 1. Bottleneck vs. Wasted Capacity
