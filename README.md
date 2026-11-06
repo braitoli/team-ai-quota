@@ -71,7 +71,7 @@ Verify service availability:
 ```bash
 # Check service health
 curl -s http://localhost:8787/health
-# {"status":"ok","service":"claude-quota-monitor"}
+# {"status":"ok","service":"team-ai-quota"}
 
 # Open the Web Dashboard in your browser:
 # http://localhost:8787/?key=your-secret-key
