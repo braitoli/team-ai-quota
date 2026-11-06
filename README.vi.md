@@ -36,23 +36,20 @@ Các công cụ theo dõi hạn mức cá nhân hay thanh trạng thái cục b�
 
 ## Giao Diện Vận Hành Thực Tế & Bảng Điều Khiển Đội Ngũ
 
-![AI Quota Monitor Dashboard Overview (English)](docs/assets/dashboard-overview-en.png)
-*Hình 1: Toàn cảnh Web Dashboard (Tiếng Anh) hiển thị Thẻ Gợi Ý Trung Tâm ("Nên dùng tài khoản nào bây giờ"), theo dõi đa chu kỳ (7 ngày & 5 giờ), và các trạng thái tài khoản cốt lõi (Sẵn sàng, Đang dùng, Xung đột & Đốt nóng, Đã reset tuần 100%).*
+![Tổng quan bảng điều khiển Team AI Quota](docs/assets/dashboard-overview-vi.png)
+*Hình 1: Toàn cảnh Web Dashboard với Thẻ Gợi Ý Trung Tâm ("Nên dùng tài khoản nào bây giờ"), theo dõi đa chu kỳ (7 ngày & 5 giờ) và các trạng thái tài khoản cốt lõi (Sẵn sàng, Đang dùng, Xung đột & Đốt nóng, Đã reset tuần 100%).*
 
 <br/>
 
-![Hộp thoại Cài đặt, Cấu hình Đa CLI & Gán Nhãn Thân Thiện](docs/assets/settings-labeling-modal.png)
-*Hình 2: Modal Cài đặt & Gán nhãn (`⚙️`) hỗ trợ bật/tắt 6 CLI Coding Agents (`claude`, `codex`, `agy`, `gemini`, `copilot`, `cursor`), cấu hình cửa sổ đo (`7d`, `5h`, `30d`), chế độ ưu tiên định tuyến, và bảng ánh xạ định danh máy trạm / email thành viên.*
+![Hộp thoại Cài đặt & Gán nhãn](docs/assets/settings-modal-vi.png)
+*Hình 2: Hộp thoại Cài đặt & Gán nhãn (`⚙️`) hỗ trợ bật/tắt 6 CLI Coding Agents (`claude`, `codex`, `agy`, `gemini`, `copilot`, `cursor`), cấu hình cửa sổ đo (`7d`, `5h`, `30d`), chế độ ưu tiên định tuyến và tên thân thiện cho máy trạm / tài khoản.*
 
 <br/>
 
-![Bảng điều khiển Giao diện Tiếng Việt](docs/assets/dashboard-overview-vi.png)
-*Hình 3: Giao diện Tiếng Việt chuẩn hiển thị cảnh báo tốc độ đốt 7 ngày đỏ (`2.8%/h`), dự báo thời điểm cạn trước hạn reset, và cơ chế tự động phục hồi sau reset tuần (`Đã reset tuần · Sẵn sàng 100%`).*
+![Ngăn chi tiết tài khoản](docs/assets/machine-drawer-vi.png)
+*Hình 3: Ngăn chi tiết tài khoản — đường cong tốc độ tiêu thụ kèm dự báo cạn, cảnh báo nhiều người dùng chung một tài khoản và danh sách máy đang đăng nhập, đo tài khoản.*
 
-<br/>
-
-![Chi tiết Tốc độ Đốt & Lịch sử Chuyển giao Máy Trạm](docs/assets/multi-language-selector.png)
-*Hình 4: Drawer chi tiết phân tích quỹ đạo tiêu thụ quota, cảnh báo xung đột ghế dùng cùng lúc và lịch sử luân chuyển thiết bị giữa các tài khoản.*
+Dashboard cũng có bản tiếng Anh (bộ chọn ngôn ngữ ở đầu trang): xem [README.md](README.md).
 
 ---
 

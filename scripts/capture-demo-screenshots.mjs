@@ -278,54 +278,30 @@ fs.mkdirSync(outDir, { recursive: true });
 
 console.log("[4/5] Capturing screenshots...");
 
-// 1. Dashboard Overview EN
-console.log("Capturing 1: dashboard-overview-en.png...");
-await send("Page.navigate", { url: `http://127.0.0.1:${PORT}` });
-await new Promise((r) => setTimeout(r, 1000));
-await send("Runtime.evaluate", {
-  expression: `
-    localStorage.setItem('cqm_lang', 'en');
-    window.location.reload();
-  `,
-});
-await new Promise((r) => setTimeout(r, 2000));
-await capture(path.join(outDir, "dashboard-overview-en.png"));
+// One set of screenshots per UI language, so each README only shows its own language.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+for (const lang of ["en", "vi"]) {
+  console.log(`Language: ${lang}`);
+  await send("Page.navigate", { url: `http://127.0.0.1:${PORT}` });
+  await wait(1000);
+  await send("Runtime.evaluate", { expression: `localStorage.setItem('cqm_lang', '${lang}'); window.location.reload();` });
+  await wait(2200);
+  await capture(path.join(outDir, `dashboard-overview-${lang}.png`));
 
-// 2. Dashboard Overview VI
-console.log("Capturing 2: dashboard-overview-vi.png...");
-await send("Runtime.evaluate", {
-  expression: `
-    localStorage.setItem('cqm_lang', 'vi');
-    window.location.reload();
-  `,
-});
-await new Promise((r) => setTimeout(r, 2000));
-await capture(path.join(outDir, "dashboard-overview-vi.png"));
+  await send("Runtime.evaluate", { expression: `document.getElementById('settingsBtn').click();` });
+  await wait(1200);
+  await capture(path.join(outDir, `settings-modal-${lang}.png`));
+  await send("Runtime.evaluate", { expression: `document.getElementById('settingsCloseBtn').click();` });
+  await wait(600);
 
-// 3. Settings & Labeling Modal
-console.log("Capturing 3: settings-labeling-modal.png...");
-await send("Runtime.evaluate", {
-  expression: `
-    document.getElementById('settingsBtn').click();
-  `,
-});
-await new Promise((r) => setTimeout(r, 1200));
-await capture(path.join(outDir, "settings-labeling-modal.png"));
-
-// 4. Fleet Cards & Burn Rate Analytics / Multi-language selector view
-console.log("Capturing 4: multi-language-selector.png...");
-await send("Runtime.evaluate", {
-  expression: `document.getElementById('settingsCloseBtn').click();`,
-});
-await new Promise((r) => setTimeout(r, 600));
-await send("Runtime.evaluate", {
-  expression: `
-    const el = document.querySelector('[data-open="eng-pool-03@example.com"]');
-    if (el) el.click();
-  `,
-});
-await new Promise((r) => setTimeout(r, 1200));
-await capture(path.join(outDir, "multi-language-selector.png"));
+  await send("Runtime.evaluate", {
+    expression: `const el = document.querySelector('[data-open="eng-pool-03@example.com"]'); if (el) el.click();`,
+  });
+  await wait(1200);
+  await capture(path.join(outDir, `machine-drawer-${lang}.png`));
+  await send("Runtime.evaluate", { expression: `document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));` });
+  await wait(400);
+}
 
 console.log("[5/5] Cleaning up processes...");
 ws.close();
