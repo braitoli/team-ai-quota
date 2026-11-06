@@ -9,6 +9,8 @@
 
 > Quản lý, điều phối & lập kế hoạch hạn mức AI coding thông minh cho đội nhóm kỹ thuật.
 
+[![Team AI Quota dashboard demo](docs/assets/demo.gif)](https://braitoli.github.io/team-ai-quota/)
+
 **AI Quota Monitor** là nền tảng quản trị hạn mức tập trung, điều phối tải theo thời gian thực và lập kế hoạch sử dụng (capacity planning) được thiết kế chuyên biệt cho đội ngũ kỹ thuật và doanh nghiệp vận hành **CLI Coding Agents** (`Claude Code`, `OpenAI Codex CLI`, `Antigravity`, `Gemini CLI`, `GitHub Copilot CLI`, `Cursor Agent CLI`).
 
 Mặc dù người dùng cá nhân (solo power users) sở hữu nhiều tài khoản vẫn có thể tận dụng rất tốt, hệ thống được thiết kế từ gốc để giải quyết bài toán vận hành cốt lõi của **các squad kỹ thuật (5–50+ lập trình viên)** cùng chia sẻ, luân chuyển và tối ưu hóa nhóm tài nguyên đăng ký AI cao cấp.
