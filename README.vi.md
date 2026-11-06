@@ -19,6 +19,9 @@ Mặc dù người dùng cá nhân (solo power users) sở hữu nhiều tài kh
 
 ## Tại sao Đội ngũ & Doanh nghiệp Cần Giải Pháp Này?
 
+![Vì sao đội nhóm cần công cụ này: nghẽn cổ chai và lãng phí hạn mức, đụng tài khoản, giải pháp cho cả nhóm (infographic do AI tạo)](docs/assets/why-teams-vi.png)
+
+
 Các công cụ theo dõi hạn mức cá nhân hay thanh trạng thái cục bộ chỉ hiển thị thông tin cho một lập trình viên trên một máy trạm duy nhất. Nhưng trong một tổ chức kỹ thuật quản lý một nhóm tài khoản AI (Claude Max/Pro, Codex, Copilot, Cursor, Gemini), các kỹ sư trưởng và quản lý đối mặt với ba bế tắc mang tính cấu trúc:
 
 ### 1. Bế Tắc Lệch Tải: Thiếu Cục Bộ & Thừa Lãng Phí
