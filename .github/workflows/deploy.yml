@@ -28,7 +28,7 @@ jobs:
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Show Node.js version
         run: node --version && npm --version
@@ -60,7 +60,7 @@ jobs:
       MACHINE_LABELS: ${{ vars.MACHINE_LABELS }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # wrangler.jsonc is gitignored (it may hold account-specific values); CI builds it from the example.
       - name: Prepare wrangler config
