@@ -80,7 +80,19 @@ try {
       if (!res.ok) throw new Error(`report failed: ${res.status} ${await res.text()}`);
     }
   }
-  const snap = await (await fetch(`${base}/status`, { headers: H })).text();
+  const snapObj = await (await fetch(`${base}/status`, { headers: H })).json();
+  // the demo only covers 6 days, so closed weeks are synthetic: 3 past weeks per account
+  const weeks = [];
+  for (const acc of ACCOUNTS) {
+    const a = (snapObj.accounts || []).find((x) => x.email === acc.email);
+    if (!a) continue;
+    for (let k = 1; k <= 3; k++) {
+      const used = Math.round(Math.min(98, 25 + acc.rate * 300 * (0.6 + rnd() * 0.8)));
+      weeks.push({ account_key: a.account_key || a.email, start_at: new Date(now - (k + 1) * 7 * 24 * HOUR).toISOString(), end_at: new Date(now - k * 7 * 24 * HOUR).toISOString(), final_used: used, waste: 100 - used });
+    }
+  }
+  snapObj.history_weekly = { weeks };
+  const snap = JSON.stringify(snapObj);
   let html = renderDashboardPage(snap, "");
   html = html
     .replace("<title>Team AI Quota</title>", "<title>Team AI Quota — live demo (sample data)</title>")

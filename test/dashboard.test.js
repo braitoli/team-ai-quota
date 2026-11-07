@@ -69,6 +69,14 @@ test("history has a weekly quota section fed by history_weekly", () => {
   assert.ok(html.includes("function renderWeekHist("), "weekly history renderer");
 });
 
+test("accounts with a weekly quota are measured per week, the others per 5h cycle", () => {
+  const html = renderDashboardPage(JSON.stringify({ version: 1, provider: "claude", accounts: [], history_weekly: { weeks: [] } }), "k");
+  assert.ok(html.includes('id="weekWaste"') && html.includes("function renderWeekWaste("), "weekly waste chart");
+  assert.ok(html.includes("function wkStats(") && html.includes("function isWk("), "weekly basis helpers");
+  assert.ok(html.includes("if (isWk(r)) return effRowWeekly(r);"), "weekly accounts use the weekly efficiency row");
+  assert.ok(html.includes("!wkEmails[d.email]"), "the daily 5h chart skips accounts that have a weekly quota");
+});
+
 test("7d quota section is displayed on the left and 5h on the right with pulse animation on 7d speed warning/hot", () => {
   const html = renderDashboardPage(JSON.stringify({ version: 1, provider: "claude", accounts: [] }), "k");
   assert.ok(html.includes('<div class="dual">\' + wkCol + cardCol("⏱ 5h"'), "cards render 7d (wkCol) before 5h");

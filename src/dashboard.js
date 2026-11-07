@@ -2066,6 +2066,37 @@ function clientApp() {
     return { rows: rows, team: team };
   }
 
+  // ---------- weekly basis ----------
+  // An account with a weekly quota is measured per closed week (its 5h cycles are capped by the weekly limit, so
+  // "5h waste" is not meaningful for it); accounts without one keep the 5h-cycle statistics.
+  var WK_SHOWN = 4;
+  function wkAll() { return (FULL.history_weekly && Array.isArray(FULL.history_weekly.weeks)) ? FULL.history_weekly.weeks : []; }
+  function wkClosed(r) {
+    var key = keyOf(r);
+    return wkAll().filter(function (w) { return w.account_key === key; }).sort(function (a, b) { return ms(a.end_at) - ms(b.end_at); }).slice(-WK_SHOWN);
+  }
+  function isWk(r) { return r.weekly_used != null || wkClosed(r).length > 0; }
+  // used/lost in "weekly quotas of one account" (1 = a whole week's quota)
+  function wkStats(r) {
+    var c = wkClosed(r);
+    if (!c.length) return { n: 0 };
+    var u = sum(c.map(function (w) { return clamp(w.final_used, 0, 100); })) / 100;
+    var l = sum(c.map(function (w) { return clamp(w.waste, 0, 100); })) / 100;
+    return { n: c.length, used: u, lost: l, efficiency: u + l > 0 ? u / (u + l) * 100 : null };
+  }
+  function histKpisWeekly(wrows) {
+    var st = wrows.map(function (r) { return { r: r, s: wkStats(r) }; }).filter(function (x) { return x.s.n > 0; });
+    var U = sum(st.map(function (x) { return x.s.used; })), L = sum(st.map(function (x) { return x.s.lost; })), N = sum(st.map(function (x) { return x.s.n; }));
+    var eff = U + L > 0 ? U / (U + L) * 100 : null;
+    var effBar = U + L > 0 ? '<div class="bar tall"><span class="seg-used" style="flex:' + U + ' 1 0"></span><span class="seg-risk" style="flex:' + L + ' 1 0"></span></div>' : "";
+    var worst = st.slice().sort(function (a, b) { return b.s.lost - a.s.lost; })[0];
+    var hint0 = t("c_no_closed_week");
+    return kpiCard(t("hist_eff"), eff == null ? "—" : '<span class="' + effTone(eff) + '">' + pct(eff) + "</span>", effBar, N ? t("c_cap_used") + " · " + t("c_wk_basis", { n: N }) : hint0) +
+      kpiCard(t("hist_waste"), N ? "≈ " + num1(L) + "<small>" + t("c_weeks_unit") + "</small>" : "—", N ? '<div class="bar tall"><span class="seg-risk" style="flex:' + L + ' 1 0"></span></div>' : "", N ? t("c_wk_waste_hint") : hint0) +
+      kpiCard(t("hist_wk_closed"), N + "<small>" + t("c_wk_short") + "</small>", "", N ? t("c_wk_closed_hint", { a: st.length }) : hint0) +
+      kpiCard(t("hist_worst"), worst ? '<span class="acct" style="font-size:24px"><span class="tr" title="' + esc(worst.r.email) + '">' + esc(nm(worst.r.email)) + "</span></span>" : "—", "", worst ? t("c_wk_worst_hint", { n: num1(worst.s.lost), eff: pct(worst.s.efficiency) }) : "");
+  }
+
   // ---------- tab "Lịch sử 14 ngày" ----------
   function renderHistory(v) {
     var emails = v.sorted.map(function (r) { return r.email; });
@@ -2095,7 +2126,10 @@ function clientApp() {
       kpiCard(t("hist_idle_h"), Math.round(idleH) + "<small>" + t("c_hours_unit") + "</small>", hoursBar, t("c_over_h", { n: obsH })) +
       kpiCard(t("hist_worst"), worst ? '<span class="acct" style="font-size:24px"><span class="tr" title="' + esc(worst.email) + '">' + esc(nm(worst.email)) + "</span></span>" : "—", "", ws ? t("c_worst_hint", { n: num1((ws.wasted_windows || 0) + (ws.idle_windows || 0)), eff: pct(ws.efficiency) }) + (lowEff && lowEff !== worst ? " · " + t("c_lowest_pct") + " " + esc(nm(lowEff.email)) + " " + effText(lowEff.stats_14d.efficiency, lowEff.stats_14d.efficiency_max) : "") : "");
 
+    var wrows = rows.filter(isWk);
+    if (wrows.length) $("histKpis").innerHTML = histKpisWeekly(wrows);
     renderWeekHist(v);
+    renderWeekWaste(wrows);
     renderDaily(emails);
     var hmd = hmRowsFor(emails, true);
     var hmHost = $("heatmap");
@@ -2137,11 +2171,43 @@ function clientApp() {
       : '<div class="cap" style="margin-bottom:8px">' + t("week_start_hint") + '</div>';
     host.innerHTML = head + html;
   }
+  // Wasted weekly quota per calendar week (Mon-Sun, GMT+7) of the closed weeks of the accounts that have one.
+  function renderWeekWaste(wrows) {
+    var host = $("weekWaste"), sec = $("weekWasteSec");
+    wrows = wrows.filter(function (r) { return sel.has(r.email); });
+    sec.style.display = wrows.length ? "" : "none";
+    if (!wrows.length) return;
+    var buckets = {};
+    wrows.forEach(function (r) {
+      wkClosed(r).forEach(function (w) {
+        var d = g7(ms(w.end_at) - 1), dow = (d.getUTCDay() + 6) % 7;
+        var start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dow) - TZ;
+        var b = buckets[start] || (buckets[start] = { start: start, per: [] });
+        b.per.push({ email: r.email, lost: clamp(w.waste, 0, 100) / 100 });
+      });
+    });
+    var rows = Object.keys(buckets).map(function (k) { var b = buckets[k]; b.lost = sum(b.per.map(function (o) { return o.lost; })); return b; }).sort(function (a, b) { return b.start - a.start; });
+    if (!rows.length) { host.innerHTML = '<div class="empty"><b>' + t("c_no_closed_week") + "</b>" + t("week_start_hint") + "</div>"; $("weekWasteLegend").innerHTML = ""; return; }
+    var maxV = Math.max(0.5, Math.max.apply(null, rows.map(function (r) { return r.lost; })));
+    host.innerHTML = rows.map(function (r) {
+      var label = dm(r.start) + "–" + dm(r.start + 6 * 86400000);
+      var top = r.per.slice().sort(function (a, b) { return b.lost - a.lost; })[0];
+      var tip = label + ": " + t("c_week_waste_tip", { tot: num1(r.lost) }) + "\n" + r.per.filter(function (o) { return o.lost > 0.005; }).map(function (o) { return nm(o.email) + " " + num1(o.lost); }).join(" · ");
+      return '<div style="display:grid;grid-template-columns:118px minmax(0,1fr) auto;gap:10px;align-items:center;padding:4px 0" data-tip="' + esc(tip) + '">' +
+        '<span class="muted num">' + esc(label) + "</span>" +
+        '<div class="bar" style="width:' + Math.max(2, r.lost / maxV * 100).toFixed(1) + '%"><span class="seg-risk" style="flex:' + r.lost.toFixed(2) + ' 1 0"></span></div>' +
+        '<span class="num" style="white-space:nowrap">' + (r.lost < 0.05 ? "0" : "≈ " + num1(r.lost)) + (top && r.lost >= 0.5 ? ' <span class="muted">· ' + esc(nm(top.email)) + " " + t("c_most") + "</span>" : "") + "</span></div>";
+    }).join("");
+    $("weekWasteLegend").innerHTML = '<span><span class="sw seg-risk"></span>' + t("c_legend_week_lost") + "</span>";
+  }
   function renderDaily(emails) {
     var host = $("daily");
     var h = S.history_14d || {};
     var days = Array.isArray(h.days) ? h.days : [];
-    var daily = (Array.isArray(h.daily) ? h.daily : []).filter(function (d) { return sel.has(d.email); });
+    var wkEmails = {};
+    FULL.accounts.forEach(function (r) { if (isWk(r)) wkEmails[r.email] = 1; });
+    var daily = (Array.isArray(h.daily) ? h.daily : []).filter(function (d) { return sel.has(d.email) && !wkEmails[d.email]; });
+    $("dailySec").style.display = !daily.length && Object.keys(wkEmails).length ? "none" : "";
     if (!days.length || !daily.length) { host.innerHTML = '<div class="empty"><b>' + t("c_no_history") + '</b>' + t("c_history_hint") + '</div>'; $("dailyLegend").innerHTML = ""; return; }
     var rows = days.map(function (d, di) {
       var per = daily.map(function (a) { return { email: a.email, w: (+(a.waste_pct || [])[di] || 0) / 100, i: (+(a.idle_h || [])[di] || 0) / 5 }; });
@@ -2164,9 +2230,11 @@ function clientApp() {
   }
   function renderEfficiency(rows) {
     var host = $("eff");
-    var list = rows.filter(function (r) { return r.stats_14d; }).slice().sort(function (a, b) { return (b.stats_14d.efficiency || 0) - (a.stats_14d.efficiency || 0); });
+    var effOf = function (r) { if (isWk(r)) { var w = wkStats(r); return w.n ? w.efficiency || 0 : -1; } return r.stats_14d.efficiency || 0; };
+    var list = rows.filter(function (r) { return r.stats_14d || isWk(r); }).slice().sort(function (a, b) { return effOf(b) - effOf(a); });
     if (!list.length) { host.innerHTML = '<div class="empty"><b>' + t("no_data") + '</b></div>'; return; }
     host.innerHTML = list.map(function (r) {
+      if (isWk(r)) return effRowWeekly(r);
       var s = r.stats_14d;
       var parts = [["used", s.used_windows || 0], ["risk", s.wasted_windows || 0], ["idle", s.idle_windows || 0]];
       var tot = sum(parts.map(function (p) { return p[1]; }));
@@ -2175,6 +2243,15 @@ function clientApp() {
         '<div class="bar tall" data-tip="' + esc(tip) + '" role="img" aria-label="' + esc(tip.replace(/\n/g, ", ")) + '">' + (tot > 0 ? parts.map(function (p) { return '<span class="seg-' + p[0] + '" style="flex:' + p[1].toFixed(2) + ' 1 0"></span>'; }).join("") : "") + "</div>" +
         '<div class="num ' + effTone(s.efficiency) + '" style="text-align:right;font-weight:700;white-space:nowrap" title="' + esc(effNote(s)) + '">' + effText(s.efficiency, s.efficiency_max) + "</div></div>";
     }).join("");
+  }
+  function effRowWeekly(r) {
+    var w = wkStats(r);
+    var left = '<div>' + chip(r.email) + '<div class="muted" style="font-size:11px">' + (w.n ? t("c_lost_wk", { n: num1(w.lost) }) : t("c_no_closed_week")) + "</div></div>";
+    if (!w.n) return '<div style="display:grid;grid-template-columns:minmax(64px,110px) minmax(0,1fr) 48px;gap:10px;align-items:center;padding:6px 0">' + left + '<div class="bar tall"></div><div class="num muted" style="text-align:right">—</div></div>';
+    var tip = nm(r.email) + " · " + t("c_eff_wk_tip", { used: num1(w.used), w: num1(w.lost), n: w.n, avg: pct(w.used / w.n * 100) });
+    return '<div style="display:grid;grid-template-columns:minmax(64px,110px) minmax(0,1fr) 48px;gap:10px;align-items:center;padding:6px 0">' + left +
+      '<div class="bar tall" data-tip="' + esc(tip) + '" role="img" aria-label="' + esc(tip.replace(/\n/g, ", ")) + '"><span class="seg-used" style="flex:' + w.used.toFixed(2) + ' 1 0"></span><span class="seg-risk" style="flex:' + w.lost.toFixed(2) + ' 1 0"></span></div>' +
+      '<div class="num ' + effTone(w.efficiency) + '" style="text-align:right;font-weight:700;white-space:nowrap">' + pct(w.efficiency) + "</div></div>";
   }
   function effText(lo, hi) { return lo == null ? "—" : hi != null && hi - lo >= 2 ? Math.round(lo) + "–" + Math.round(hi) + "%" : pct(lo); }
   function effNote(s) {
@@ -2954,8 +3031,14 @@ export function renderDashboardPage(snapshotJson, key) {
         </div>
         <div class="section grid-2">
           <div>
-            <div class="section-h"><h2 data-i18n="sec_daily_waste">${LT("sec_daily_waste")}</h2><span class="cap" data-i18n="sec_daily_waste_cap">${LT("sec_daily_waste_cap")}</span></div>
-            <div class="panel"><div class="chart" id="daily" style="min-height:120px"></div><div class="legend" id="dailyLegend" style="margin-top:8px"></div></div>
+            <div id="weekWasteSec">
+              <div class="section-h"><h2 data-i18n="sec_week_waste">${LT("sec_week_waste")}</h2><span class="cap" data-i18n="sec_week_waste_cap">${LT("sec_week_waste_cap")}</span></div>
+              <div class="panel"><div class="chart" id="weekWaste" style="min-height:120px"></div><div class="legend" id="weekWasteLegend" style="margin-top:8px"></div></div>
+            </div>
+            <div id="dailySec">
+              <div class="section-h"><h2 data-i18n="sec_daily_waste">${LT("sec_daily_waste")}</h2><span class="cap" data-i18n="sec_daily_waste_cap">${LT("sec_daily_waste_cap")}</span></div>
+              <div class="panel"><div class="chart" id="daily" style="min-height:120px"></div><div class="legend" id="dailyLegend" style="margin-top:8px"></div></div>
+            </div>
           </div>
           <div>
             <div class="section-h"><h2 data-i18n="sec_account_eff">${LT("sec_account_eff")}</h2>
