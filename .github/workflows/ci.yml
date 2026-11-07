@@ -44,7 +44,7 @@ jobs:
           fi
 
       - name: Run server and unit tests
-        run: node --test test/*.test.js
+        run: node --test test/*.test.js cli/test/*.test.mjs
 
       - name: Run client daemon tests
         run: npm run test:client

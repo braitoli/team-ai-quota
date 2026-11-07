@@ -235,6 +235,24 @@ Dự án luôn chào đón mọi đóng góp! Vui lòng tham khảo [CONTRIBUTIN
 
 Nếu có vấn đề liên quan đến bảo mật, xin tham khảo [SECURITY.md](SECURITY.md).
 
+## CLI và skill cho AI agent
+
+Truy vấn hạn mức của đội ngay từ terminal hoặc từ AI agent (nên dùng tài khoản nào, trạng thái, máy nào đang dùng tài khoản nào, hạn mức tuần bỏ phí):
+
+```bash
+npx team-ai-quota login "https://your-quota-host/?key=YOUR_KEY"   # một lần: chính link bạn mở trên trình duyệt
+npx team-ai-quota best                                             # nên dùng tài khoản nào ngay bây giờ
+npx team-ai-quota status | machines | waste | health
+```
+
+Khóa được lưu ở `~/.config/team-ai-quota/config.json` (quyền 600) và không bao giờ được in ra. Dùng giống nhau cho bản triển khai Cloudflare, Docker và Kubernetes. Chi tiết: [`cli/README.md`](cli/README.md).
+
+Cài skill để Claude Code, Codex, Cursor và các agent khác biết khi nào và cách gọi:
+
+```bash
+npx skills add braitoli/team-ai-quota
+```
+
 ---
 
 ## Giấy Phép

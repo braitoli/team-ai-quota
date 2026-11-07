@@ -375,6 +375,24 @@ python3 client/ai_quota.py best --url http://localhost:8787 --key your-secret-ke
 
 ---
 
+## CLI and AI agent skill
+
+Query your team's quota from the terminal or from an AI agent (which account to use now, status, which machine uses which account, weekly waste):
+
+```bash
+npx team-ai-quota login "https://your-quota-host/?key=YOUR_KEY"   # once: the same link you open in the browser
+npx team-ai-quota best                                             # which account to use now
+npx team-ai-quota status | machines | waste | health
+```
+
+The key is saved in `~/.config/team-ai-quota/config.json` (mode 600) and never printed. It works the same for Cloudflare, Docker and Kubernetes deployments. Details: [`cli/README.md`](cli/README.md).
+
+Install the skill so Claude Code, Codex, Cursor and other agents know when and how to call it:
+
+```bash
+npx skills add braitoli/team-ai-quota
+```
+
 ## Development
 
 ### Prerequisites
