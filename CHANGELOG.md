@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `taq` command line (npm package `team-ai-quota`, folder `cli/`): `login`, `best`, `status`, `machines`, `waste`, `health`. Read-only, no dependencies; the key is saved once in `~/.config/team-ai-quota/config.json`.
+- Agent skill `skills/team-ai-quota` (install with `npx skills add braitoli/team-ai-quota`) so AI agents can query the team quota.
+
 ### Changed
 
 - Texts the server puts in the snapshot (predictions, badges, auth labels, opportunity lines, machine intensity, placeholders for unnamed machines) are now English plus `<field>_key` / `<field>_params`, so the dashboard shows them in the selected language (English mode no longer shows Vietnamese). Old fields are kept; see `docs/api.md`.
