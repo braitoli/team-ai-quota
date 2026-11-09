@@ -23,6 +23,8 @@ import {
   HOUR_MS,
   MINUTE_MS,
   DAY_MS,
+  STALE_MS,
+  isStale,
 } from "../src/analytics.js";
 
 const T0 = Date.parse("2026-10-27T10:00:00.000Z"); // 17:00 GMT+7
@@ -1463,3 +1465,103 @@ test("token_delta accumulates per (machine, account), ignores retried deltas and
   assert.deepEqual([by["a@x.io"].input, by["a@x.io"].output, by["a@x.io"].msgs], [300, 130, 5]);
   assert.deepEqual([by["b@x.io"].input, by["b@x.io"].output, by["b@x.io"].msgs], [1000, 400, 7]);
 });
+
+test("isStale: returns false when last_report_at is fresh even if last_valid_at is old", () => {
+  const now = T0 + 120 * M;
+  // last_valid_at is 120m ago (> 75m), but last_report_at is only 5m ago
+  const s = {
+    last_valid_at: T0,
+    last_report_at: now - 5 * M,
+  };
+  assert.equal(isStale(s, now), false, "should not be stale when last_report_at is fresh");
+
+  // both last_valid_at and last_report_at are older than STALE_MS
+  const sOld = {
+    last_valid_at: T0,
+    last_report_at: T0 + 10 * M,
+  };
+  assert.equal(isStale(sOld, now), true, "should be stale when both are > 75m ago");
+
+  // last_valid_at is fresh, last_report_at is old
+  const sValidFresh = {
+    last_valid_at: now - 10 * M,
+    last_report_at: T0,
+  };
+  assert.equal(isStale(sValidFresh, now), false, "should not be stale when last_valid_at is fresh");
+});
+
+test("ingestReport: out-of-order 5h report with valid weekly limits updates s.limits and last_valid_at", () => {
+  const store = emptyStore();
+  const reset = T0 + 3 * H;
+  const wkReset = T0 + 7 * DAY_MS;
+  const weeklyLimits1 = [
+    { kind: "weekly", group: "weekly", percent: 40, resets_at: wkReset, is_active: true },
+  ];
+  const weeklyLimits2 = [
+    { kind: "weekly", group: "weekly", percent: 45, resets_at: wkReset, is_active: true },
+  ];
+
+  // 1. Initial report with 5h 50% and weekly 40%
+  const res1 = post(store, {
+    kind: "quota",
+    email: "a@x.io",
+    used: 50,
+    resets_at: reset,
+    limits: weeklyLimits1,
+  }, T0);
+  assert.equal(store.states["a@x.io"].used, 50);
+  assert.equal(store.states["a@x.io"].last_valid_at, T0);
+
+  // 2. Out-of-order report inside same window (used 35 < 50), but with newer weekly limits (45%) at T0 + 30m
+  const res2 = post(store, {
+    kind: "quota",
+    email: "a@x.io",
+    used: 35,
+    resets_at: reset,
+    limits: weeklyLimits2,
+  }, T0 + 30 * M);
+
+  // 5h used must remain 50 (not downgraded), but limits and last_valid_at MUST be updated
+  assert.equal(store.states["a@x.io"].used, 50);
+  assert.equal(store.states["a@x.io"].last_valid_at, T0 + 30 * M);
+  assert.equal(store.states["a@x.io"].limits[0].percent, 45);
+
+  // Row computed at T0+30m must reflect weekly 45% and not be stale
+  const row = computeRow(store.states["a@x.io"], store.samples, T0 + 30 * M);
+  assert.equal(row.stale, false);
+  assert.equal(row.weekly_used, 45);
+
+  const wkRow = { ...row, ...computeWeeklyRow(row, T0 + 30 * M) };
+  assert.equal(wkRow.weekly_used, 45);
+  assert.equal(wkRow.stale, false);
+  assert.ok(wkRow.velocity > 0, "weekly velocity must not be zero");
+});
+
+test("ingestReport: report with older R < ref but valid limits updates limits and last_valid_at", () => {
+  const store = emptyStore();
+  const r1 = T0 + H;
+  const wkReset = T0 + 7 * DAY_MS;
+  post(store, {
+    kind: "quota",
+    email: "a@x.io",
+    used: 60,
+    resets_at: r1,
+    limits: [{ kind: "weekly", group: "weekly", percent: 30, resets_at: wkReset, is_active: true }],
+  }, T0);
+
+  // At T0 + 2h, window r1 has closed. A report arrives with older R = T0 + 30m, but updated weekly limits (35%)
+  const res = post(store, {
+    kind: "quota",
+    email: "a@x.io",
+    used: 20,
+    resets_at: T0 + 30 * M,
+    limits: [{ kind: "weekly", group: "weekly", percent: 35, resets_at: wkReset, is_active: true }],
+  }, T0 + 2 * H);
+
+  assert.equal(store.states["a@x.io"].last_valid_at, T0 + 2 * H);
+  assert.equal(store.states["a@x.io"].limits[0].percent, 35);
+  const row = computeRow(store.states["a@x.io"], store.samples, T0 + 2 * H);
+  assert.equal(row.stale, false);
+  assert.equal(row.weekly_used, 35);
+});
+

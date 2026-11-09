@@ -548,8 +548,14 @@ function markValid(s, report, now) {
   s.last_valid_at = now;
   s.last_valid_machine = report.machine_id || null;
   if (Array.isArray(report.limits)) {
-    s.limits = report.limits;
-    s.limits_at = now;
+    const prevWk = computeWeekly(s.limits, s.limits_at ?? now);
+    const curWk = computeWeekly(report.limits, now);
+    const isDowngrade = prevWk.weekly_used != null && curWk.weekly_used != null &&
+      curWk.weekly_used < prevWk.weekly_used && s.reset_weekly_ts !== now;
+    if (!isDowngrade) {
+      s.limits = report.limits;
+      s.limits_at = now;
+    }
   }
 }
 
@@ -641,13 +647,17 @@ export function ingestReport(prevState, report, now, recentSamples = []) {
   // (canonical resets_at), then by non-decreasing used inside a window; client clocks only break the
   // "no active window" tie. A report that fails these checks is history only: it changes no state.
   const ref = s.win ? s.win.resets_at : s.last_closed_end;
+  const hasValidLimits = Array.isArray(report.limits) && report.limits.length > 0;
   if (R !== null && ref !== null && ref !== undefined && R < ref && !sameWindow(R, ref)) {
+    if (hasValidLimits) markValid(s, report, now);
     return { state: s, sample: null, ...out };
   }
   if (s.win && R !== null && sameWindow(s.win.resets_at, R) && U < s.win.last_used) {
+    if (hasValidLimits) markValid(s, report, now);
     return { state: s, sample: null, ...out };
   }
   if (s.win && R === null && measuredAtOf(report, now) <= s.win.last_sample_ts) {
+    if (hasValidLimits) markValid(s, report, now);
     return { state: s, sample: null, ...out };
   }
 
@@ -802,8 +812,8 @@ export function applyHardTransitions(prevState, now) {
 }
 
 /** Stale = no VALID quota report for > 75 min (auth/error reports carry no quota data). */
-function isStale(s, now) {
-  const ref = s.last_valid_at || s.last_report_at || 0;
+export function isStale(s, now) {
+  const ref = Math.max(s.last_valid_at || 0, s.last_report_at || 0);
   return now - ref > STALE_MS;
 }
 
