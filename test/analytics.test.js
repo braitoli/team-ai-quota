@@ -1628,4 +1628,76 @@ test("computeWeekly: expired limit from days ago does NOT activate weekly_reset_
   assert.equal(wRecent.weekly_reset_ready, true);
 });
 
+test("markValid: natural weekly rollover to new week with lower percent is NOT blocked by isDowngrade", () => {
+  const store = emptyStore();
+  const wk1Reset = T0 + DAY_MS;
+  const wk2Reset = wk1Reset + 7 * DAY_MS;
+
+  // 1. Report near the end of Week 1 with 100% weekly used
+  post(store, {
+    kind: "quota",
+    email: "dinhnt@x.io",
+    used: 50,
+    resets_at: T0 + 2 * H,
+    limits: [{ kind: "weekly", group: "weekly", percent: 100, resets_at: wk1Reset, is_active: true }],
+  }, T0);
+  assert.equal(store.states["dinhnt@x.io"].row.weekly_used, 100);
+
+  // 2. After Week 1 expires (T0 + 2d), client reports Week 2 with 15% weekly used (< 100%)
+  const tWeek2 = T0 + 2 * DAY_MS;
+  const res = post(store, {
+    kind: "quota",
+    email: "dinhnt@x.io",
+    used: 20,
+    resets_at: tWeek2 + 3 * H,
+    limits: [{ kind: "weekly", group: "weekly", percent: 15, resets_at: wk2Reset, is_active: true }],
+  }, tWeek2);
+
+  // s.limits and row MUST reflect the new week (15%), and week 1 must be closed into weeks history
+  assert.equal(res.writes.weeks.length, 1);
+  assert.equal(res.writes.weeks[0].final_used, 100);
+  assert.equal(store.states["dinhnt@x.io"].limits[0].percent, 15);
+  assert.equal(store.states["dinhnt@x.io"].limits[0].resets_at, wk2Reset);
+  assert.equal(store.states["dinhnt@x.io"].row.weekly_used, 15);
+  assert.equal(store.states["dinhnt@x.io"].row.weekly_resets_at, new Date(wk2Reset).toISOString());
+});
+
+test("self-healing: s.limits stuck at expired week is healed immediately from s.week", () => {
+  const now = T0 + 3 * DAY_MS;
+  const expiredWkReset = T0; // expired 3 days ago
+  const currentWkReset = T0 + 7 * DAY_MS; // active current week
+
+  const stuckState = {
+    email: "dinhnt@x.io",
+    first_seen: T0 - 7 * DAY_MS,
+    used: 22,
+    resets_at: now + 2 * H,
+    win: { resets_at: now + 2 * H, last_used: 22, last_sample_ts: now - 5 * M },
+    last_closed_end: null,
+    idle_from: null,
+    last_report_at: now - 5 * M,
+    last_valid_at: now - 5 * M,
+    last_sample: null,
+    // s.limits was stuck in the old expired week due to previous bug
+    limits: [{ kind: "weekly", group: "weekly", percent: 100, resets_at: expiredWkReset, is_active: true }],
+    limits_at: expiredWkReset - HOUR_MS,
+    // s.week has the valid current week tracked by trackWeek()
+    week: { resets_at: currentWkReset, last_used: 42 },
+    row: null,
+  };
+
+  // 1. applyHardTransitions heals s.limits from s.week and recomputes s.row
+  const ht = applyHardTransitions(stuckState, now);
+  assert.equal(ht.changed, true);
+  assert.equal(ht.state.row.weekly_used, 42);
+  assert.equal(ht.state.row.weekly_resets_at, new Date(currentWkReset).toISOString());
+
+  // 2. computeRow directly also heals s.limits from s.week
+  const directClone = JSON.parse(JSON.stringify(stuckState));
+  const row = computeRow(directClone, [], now);
+  assert.equal(row.weekly_used, 42);
+  assert.equal(row.weekly_resets_at, new Date(currentWkReset).toISOString());
+});
+
+
 

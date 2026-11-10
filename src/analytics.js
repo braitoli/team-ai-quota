@@ -538,6 +538,32 @@ function measuredAtOf(report, now) {
   return clamp(report.fetched_at, now - FETCH_PAST_MS, now + FETCH_FUTURE_MS);
 }
 
+function healLimitsFromWeek(s, now) {
+  if (!s.week || typeof s.week.resets_at !== "number" || s.week.resets_at <= now || typeof s.week.last_used !== "number") {
+    return false;
+  }
+  const curWk = computeWeekly(s.limits, now);
+  if (curWk.weekly_used === null || !sameWindow(curWk.weekly_resets_at, s.week.resets_at)) {
+    const nonWeekly = Array.isArray(s.limits)
+      ? s.limits.filter((l) => l && typeof l === "object" && !(l.group === "weekly" || (l.kind && (l.kind.startsWith("seven_day") || l.kind.startsWith("weekly")))))
+      : [];
+    s.limits = [
+      ...nonWeekly,
+      {
+        kind: "weekly",
+        group: "weekly",
+        percent: s.week.last_used,
+        resets_at: s.week.resets_at,
+        is_active: true,
+        scope_name: null,
+      },
+    ];
+    s.limits_at = now;
+    return true;
+  }
+  return false;
+}
+
 /** A valid quota report clears auth state and this machine's warning, and records limits (mutates s). */
 function markValid(s, report, now) {
   s.auth_state = null;
@@ -551,15 +577,17 @@ function markValid(s, report, now) {
   s.last_valid_at = now;
   s.last_valid_machine = report.machine_id || null;
   if (Array.isArray(report.limits)) {
-    const prevWk = computeWeekly(s.limits, s.limits_at ?? now);
+    const prevWk = computeWeekly(s.limits, now);
     const curWk = computeWeekly(report.limits, now);
     const isDowngrade = prevWk.weekly_used != null && curWk.weekly_used != null &&
+      sameWindow(prevWk.weekly_resets_at, curWk.weekly_resets_at) &&
       curWk.weekly_used < prevWk.weekly_used && s.reset_weekly_ts !== now;
     if (!isDowngrade) {
       s.limits = report.limits;
       s.limits_at = now;
     }
   }
+  healLimitsFromWeek(s, now);
 }
 
 /**
@@ -638,7 +666,7 @@ export function ingestReport(prevState, report, now, recentSamples = []) {
   // Provider reset of the weekly quota: weekly used drops while the old week is still running.
   // Remember when, so the weekly pace is measured from the reset and not from the old week start.
   {
-    const prevWk = computeWeekly(s.limits, s.limits_at ?? now);
+    const prevWk = computeWeekly(s.limits, now);
     const curWk = computeWeekly(report.limits, now);
     if (prevWk.weekly_used != null && curWk.weekly_used != null && prevWk.weekly_resets_at != null &&
         prevWk.weekly_resets_at > now + EARLY_END_MS && prevWk.weekly_used - curWk.weekly_used >= RESET_DROP_WEEKLY) {
@@ -791,6 +819,9 @@ export function applyHardTransitions(prevState, now) {
   }
   if (s.week && now >= s.week.resets_at) {
     closeWeek(s, out);
+    changed = true;
+  }
+  if (healLimitsFromWeek(s, now)) {
     changed = true;
   }
   if (s.five_hour_disabled && typeof s.disabled_until === "number" && now >= s.disabled_until) {
@@ -947,6 +978,7 @@ export function authLabel(state) {
  * `samples` are this account's samples (any window; filtered here).
  */
 export function computeRow(s, samples, now) {
+  healLimitsFromWeek(s, now);
   const weekly = computeWeekly(s.limits, now);
   const stale = isStale(s, now);
   const base = {
