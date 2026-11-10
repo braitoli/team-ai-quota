@@ -279,6 +279,7 @@ export class TeamStore extends DurableObject {
   saveSnapshot(snapshot) {
     this.setMeta("snapshot", JSON.stringify(snapshot));
     this.setMeta("snapshot_version", snapshot.version);
+    this.setMeta("rebuilt_vel7d_v1", "1");
   }
 
   prune(now) {
@@ -332,6 +333,15 @@ export class TeamStore extends DurableObject {
 
   /** Returns { version, body } (body null when the caller's ETag version is current). */
   async getSnapshot(ifNoneMatchVersion) {
+    if (!this.getMeta("rebuilt_vel7d_v1") && this.getMeta("snapshot")) {
+      const now = Date.now();
+      const store = this.loadStore(now);
+      const settings = this.getSettings();
+      const nextVer = this.currentVersion() + 1;
+      const res = rebuildSnapshot(store, now, "vel7d-upgrade", nextVer, this.provider, settings);
+      this.applyWrites(res.writes);
+      this.saveSnapshot(res.snapshot);
+    }
     const version = this.currentVersion();
     if (ifNoneMatchVersion !== null && ifNoneMatchVersion !== undefined && String(ifNoneMatchVersion) === String(version)) {
       return { version, body: null };

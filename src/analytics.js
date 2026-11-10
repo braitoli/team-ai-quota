@@ -86,6 +86,10 @@ export function r1(x) {
   return Math.round(x * 10) / 10;
 }
 
+export function r3(x) {
+  return Math.round(x * 1000) / 1000;
+}
+
 function clamp(x, lo, hi) {
   return Math.min(hi, Math.max(lo, x));
 }
@@ -1244,9 +1248,11 @@ const WEEK_RATE_FLOOR_H = 6;
 export function computeWeeklyRow(r, now) {
   if (r.state_code === "AUTH") return {};
   const nullMetrics = {
-    rate_window: null, rate_recent: null, velocity: null, confidence: null, raw_projection: null,
+    rate_window: null, rate_window_per_day: null, rate_recent: null, velocity: null, velocity_per_day: null,
+    confidence: null, raw_projection: null,
     projected_percent: null, at_risk_waste: 0, at_risk_waste_min: 0, at_risk_waste_max: 0, uncertain: false,
-    uncertain_reason: null, exhaust_at: null, exhaust_at_gmt7: null, burn_needed_per_h: null, surplus_deficit_text: null,
+    uncertain_reason: null, exhaust_at: null, exhaust_at_gmt7: null, burn_needed_per_h: null, burn_needed_per_day: null,
+    surplus_deficit_text: null,
     elapsed_hours: null,
   };
   const hasWeekly = r.weekly_used !== null && r.weekly_used !== undefined;
@@ -1267,7 +1273,7 @@ export function computeWeeklyRow(r, now) {
   if (resetsAt !== null && now >= resetsAt) {
     return {
       ...common, ...nullMetrics,
-      velocity: 0, raw_projection: 0, projected_percent: 0,
+      velocity: 0, velocity_per_day: 0, raw_projection: 0, projected_percent: 0,
       state_code: "FRESH",
       used_percent: 0, remaining_percent: 100, free_now: 100,
       resets_at: null, resets_at_gmt7: "N/A", ...txt("resets_in", "srv_ready"), remaining_hours: null, window_start: null,
@@ -1287,7 +1293,7 @@ export function computeWeeklyRow(r, now) {
     const capped = used >= 95;
     return {
       ...common, ...nullMetrics,
-      velocity: 0, raw_projection: used, projected_percent: used,
+      velocity: 0, velocity_per_day: 0, raw_projection: used, projected_percent: used,
       state_code: used > 0 ? (capped ? "COOLDOWN" : "ACTIVE") : "FRESH",
       used_percent: used, remaining_percent: r1(Math.max(0, 100 - used)), free_now: capped ? 0 : r1(Math.max(0, 100 - used)),
       resets_at: null, resets_at_gmt7: "N/A", ...txt("resets_in", "srv_ready"), remaining_hours: null, window_start: null,
@@ -1314,7 +1320,7 @@ export function computeWeeklyRow(r, now) {
   if (used >= 95) {
     return {
       ...common, ...nullMetrics, ...windowFields,
-      velocity: 0, raw_projection: 100, projected_percent: 100,
+      velocity: 0, velocity_per_day: 0, raw_projection: 100, projected_percent: 100,
       state_code: "COOLDOWN", free_now: 0, weekly_capped: true,
       pacing_status: "danger", ...txt("pacing_badge_text", "srv_badge_weekly_cap"),
       ...txt("prediction_text", "srv_pred_week_capped", { used: r1(used), at: resetsAt, left: resetsAt - now }),
@@ -1363,9 +1369,11 @@ export function computeWeeklyRow(r, now) {
     state_code: "ACTIVE",
     weekly_capped: false,
     free_now: r1(Math.max(0, 100 - used)),
-    rate_window: r1(rWindow),
+    rate_window: r3(rWindow),
+    rate_window_per_day: r1(rWindow * 24),
     rate_recent: null,
-    velocity: r1(rate),
+    velocity: r3(rate),
+    velocity_per_day: r1(rate * 24),
     confidence,
     raw_projection: r1(rawProjection),
     projected_percent: r1(projected),
@@ -1377,6 +1385,7 @@ export function computeWeeklyRow(r, now) {
     exhaust_at: toIso(exhaustAt),
     exhaust_at_gmt7: exhaustAt === null ? null : formatGmt7(exhaustAt),
     burn_needed_per_h: r1(burnNeeded),
+    burn_needed_per_day: r1(burnNeeded * 24),
     elapsed_hours: r1(elapsedH),
     pacing_status: pacing,
     ...txt("pacing_badge_text", pacing === "danger" ? "srv_badge_danger" : pacing === "moderate" ? "srv_badge_moderate" : "srv_badge_ok"),

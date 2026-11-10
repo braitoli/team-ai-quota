@@ -151,6 +151,7 @@ test("separation of wkReady and h5Ready: wkReady does not overwrite 5h bar or fr
   assert.ok(html.includes('var h5Bar = h5Ready ? barHtml([["free", 100]], "") : null;'), "renderCards must not override 5h bar when only wkReady is true");
   assert.ok(html.includes('var w5Note = (h5Ready && d.rs5) ?'), "dualBlock w5Note must guard with h5Ready && d.rs5");
   assert.ok(html.includes('var h5Note = (h5Ready && d.rs5) ?'), "renderCards h5Note must guard with h5Ready && d.rs5");
+  assert.ok(html.includes('w.velocity_per_day != null ? w.velocity_per_day : (w.velocity != null ? w.velocity * 24 : null)'), "renderCards must prefer exact velocity_per_day over quantized velocity * 24");
 });
 
 

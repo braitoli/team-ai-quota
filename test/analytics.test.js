@@ -1699,5 +1699,51 @@ test("self-healing: s.limits stuck at expired week is healed immediately from s.
   assert.equal(row.weekly_resets_at, new Date(currentWkReset).toISOString());
 });
 
+test("computeWeeklyRow: velocity_per_day avoids 24x quantization of r1(rate) and matches forecast", () => {
+  const now = T0;
+  // Case 1 (dinhnt): 26% used in 70h (98h remaining in 168h week)
+  // True rate = 26 / 70 = 0.3714%/h -> 8.914%/day -> 8.9%/day (previously r1(0.3714)*24 = 0.4*24 = 9.6%/day)
+  const w1 = computeWeeklyRow({
+    state_code: "ACTIVE",
+    weekly_used: 26,
+    weekly_resets_at: new Date(now + 98 * H).toISOString(),
+    stale: false,
+  }, now);
+  assert.equal(w1.velocity, 0.371);
+  assert.equal(w1.velocity_per_day, 8.9);
+  assert.equal(w1.rate_window_per_day, 8.9);
+  assert.equal(w1.at_risk_waste, 37.6);
+  assert.equal(w1.exhaust_at, null);
+
+  // Case 2 (cuongnh): 75% used in 130h (38h remaining in 168h week)
+  // True rate = 75 / 130 = 0.5769%/h -> 13.846%/day -> 13.8%/day (< 14.29%/day even pace, so surplus at reset)
+  // Previously r1(0.5769)*24 = 0.6*24 = 14.4%/day (falsely above 14.29%/day even pace!)
+  const w2 = computeWeeklyRow({
+    state_code: "ACTIVE",
+    weekly_used: 75,
+    weekly_resets_at: new Date(now + 38 * H).toISOString(),
+    stale: false,
+  }, now);
+  assert.equal(w2.velocity, 0.577);
+  assert.equal(w2.velocity_per_day, 13.8);
+  assert.ok(w2.velocity_per_day < 100 / 7, "13.8%/day must be below even pace 14.29%/day to match surplus forecast");
+  assert.equal(w2.at_risk_waste, 3.1);
+  assert.equal(w2.exhaust_at, null);
+
+  // Case 3 (dev): 75% used in 119h (49h remaining in 168h week)
+  // True rate = 75 / 119 = 0.6303%/h -> 15.126%/day -> 15.1%/day (> 14.29%/day even pace, exhausts before reset)
+  const w3 = computeWeeklyRow({
+    state_code: "ACTIVE",
+    weekly_used: 75,
+    weekly_resets_at: new Date(now + 49 * H).toISOString(),
+    stale: false,
+  }, now);
+  assert.equal(w3.velocity, 0.63);
+  assert.equal(w3.velocity_per_day, 15.1);
+  assert.ok(w3.velocity_per_day > 100 / 7, "15.1%/day is above even pace 14.29%/day and exhausts before reset");
+  assert.notEqual(w3.exhaust_at, null);
+});
+
+
 
 

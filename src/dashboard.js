@@ -1789,7 +1789,8 @@ function clientApp() {
       var wkReady = d.week_reset_ready;
       var h5Ready = d.five_hour_reset_ready;
       var rate = r.state_code === "ACTIVE" ? speedHtml(r.velocity, 100 / 5, "%/h", "5h", effConf(r)) : '<span class="muted">—</span>';
-      var rate7 = w && w.state_code === "ACTIVE" && w.velocity != null ? speedHtml(w.velocity * 24, 100 / 7, t("c_unit_per_day"), t("c_win_7d"), w.confidence, "rate-pulse") : '<span class="muted">—</span>';
+      var v7 = w && w.state_code === "ACTIVE" ? (w.velocity_per_day != null ? w.velocity_per_day : (w.velocity != null ? w.velocity * 24 : null)) : null;
+      var rate7 = v7 != null ? speedHtml(v7, 100 / 7, t("c_unit_per_day"), t("c_win_7d"), w.confidence, "rate-pulse") : '<span class="muted">—</span>';
       var lr = ms(r.last_report_at);
       var age = lr != null ? agoShort(ref - lr) : "—";
       var wkBar = wkReady ? barHtml([["free", 100]], "") : (w ? barHtml(composition(w), "") : barHtml([["unknown", 100]], ""));
@@ -2363,13 +2364,15 @@ function clientApp() {
     var remTxt = rs ? (rs > now ? t("hours_left", { dur: dur(rs - now) }) : t("past_reset")) : "";
     var free = r.state_code === "AUTH" ? null : (r.weekly_capped ? 0 : r.free_now);
     var ei = exhaustInfo(r);
+    var wk = wkRow(r);
+    var v7 = wk && wk.state_code === "ACTIVE" ? (wk.velocity_per_day != null ? wk.velocity_per_day : (wk.velocity != null ? wk.velocity * 24 : null)) : null;
     var stats =
       '<div class="stat"><div class="meta-l">' + t("free_now") + '</div><div class="v num">' + (free == null ? "—" : pct(free)) + "</div></div>" +
       '<div class="stat"><div class="meta-l">' + (ei ? t("c_empty_at_lbl") : isRough(r) ? t("c_surplus_at_reset") : t("c_lose_at_reset")) + '</div><div class="v num">' + (ei ? (approx(r) ? "~" : "") + hm(ei.at) : r.state_code === "ACTIVE" ? wasteTxt(r) : "—") + "</div>" + (!ei && isRough(r) ? '<div class="meta-l">' + roughBadge(r) + "</div>" : "") + "</div>" +
       '<div class="stat"><div class="meta-l">' + (r.five_hour_disabled ? t("c_reset_week") : "Reset") + '</div><div class="v num">' + (rs ? when(rs) : "—") + '</div><div class="meta-l">' + remTxt + "</div></div>" +
       '<div class="stat"><div class="meta-l">' + t("c_speed") + '</div><div class="v num">' + (r.state_code === "ACTIVE" ? num1(r.velocity) + "%/h" : "—") + "</div>" + (r.state_code === "ACTIVE" ? '<div class="meta-l">' + confDots(effConf(r)) + "</div>" : "") + "</div>" +
       '<div class="stat"><div class="meta-l">' + t("c_needed") + '</div><div class="v num">' + (r.burn_needed_per_h != null ? num1(r.burn_needed_per_h) + "%/h" : "—") + "</div></div>" +
-      (r.weekly_used != null || r.pool ? '<div class="stat"><div class="meta-l">' + t("c_week") + '</div><div class="v num">' + (r.weekly_used == null ? "—" : pct(r.weekly_used)) + '</div><div class="meta-l">' + (r.weekly_used == null ? t("c_old_client_no_fig") : r.weekly_resets_at ? t("c_reopen") + " " + when(ms(r.weekly_resets_at)) : "") + "</div></div>" : "");
+      (r.weekly_used != null || r.pool ? '<div class="stat"><div class="meta-l">' + t("c_week") + '</div><div class="v num">' + (r.weekly_used == null ? "—" : pct(r.weekly_used)) + '</div><div class="meta-l">' + (r.weekly_used == null ? t("c_old_client_no_fig") : (r.weekly_resets_at ? t("c_reopen") + " " + when(ms(r.weekly_resets_at)) : "") + (v7 != null ? (r.weekly_resets_at ? " · " : "") + num1(v7) + t("c_unit_per_day") : "")) + "</div></div>" : "");
     var wins = windowsFor(function (w) { return w.email === r.email; }, 10);
     var wtbl = wins.length ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>' + t("c_th_cycle") + '</th><th>' + t("seg_used") + '</th><th class="r">' + t("c_th_waste") + '</th><th class="r">' + t("c_th_err") + '</th></tr></thead><tbody>' + wins.map(function (w) {
       return '<tr><td class="num">' + fmtRange(w.start, w.end) + '</td><td class="num">' + miniUsed(w.used) + " " + pct(w.used) + '</td><td class="r num">' + pct(w.waste) + '</td><td class="r num muted">±' + Math.round(w.unc || 0) + "m</td></tr>";
