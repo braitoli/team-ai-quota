@@ -144,6 +144,16 @@ test("monthly 30d quota window column is supported", () => {
   assert.ok(html.includes('winBlock("📅 30d"'), "supports 30d monthly dual block");
 });
 
+test("separation of wkReady and h5Ready: wkReady does not overwrite 5h bar or free percentage", () => {
+  const html = renderDashboardPage(JSON.stringify({ version: 1, provider: "claude", accounts: [] }), "k");
+  assert.ok(html.includes("var f5 = h5Ready ? 100 : free5Of(r);"), "decide() must calculate f5 using only h5Ready, not wkReady");
+  assert.ok(html.includes('var b5 = h5Ready ? barHtml([["free", 100]], "") : barHtml(composition(r), "");'), "dualBlock must not override 5h bar when only wkReady is true");
+  assert.ok(html.includes('var h5Bar = h5Ready ? barHtml([["free", 100]], "") : null;'), "renderCards must not override 5h bar when only wkReady is true");
+  assert.ok(html.includes('var w5Note = (h5Ready && d.rs5) ?'), "dualBlock w5Note must guard with h5Ready && d.rs5");
+  assert.ok(html.includes('var h5Note = (h5Ready && d.rs5) ?'), "renderCards h5Note must guard with h5Ready && d.rs5");
+});
+
+
 
 
 // ---------- i18n completeness of the dashboard client ----------

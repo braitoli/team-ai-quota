@@ -524,7 +524,10 @@ def parse_reset_phrase(phrase, now):
     if rel and (rel.group("d") or rel.group("h") or rel.group("m")):
         delta = timedelta(days=int(rel.group("d") or 0), hours=int(rel.group("h") or 0),
                           minutes=int(rel.group("m") or 0))
-        return (now + delta).astimezone(timezone.utc)
+        cand = now + delta
+        if cand > now + timedelta(days=35):
+            return None
+        return cand.astimezone(timezone.utc)
 
     tzname = None
     tzm = TZ_PAREN_RE.search(phrase)
@@ -544,12 +547,20 @@ def parse_reset_phrase(phrase, now):
 
     md = _month_day(phrase)
     if md:
-        for year in (now_local.year, now_local.year + 1):
+        if now_local.month == 12 and md[0] == 1:
+            years = [now_local.year + 1]
+        else:
+            years = [now_local.year]
+        for year in years:
             try:
                 cand = datetime(year, md[0], md[1], hour, minute, tzinfo=tz)
             except ValueError:
                 return None
+            if cand > now + timedelta(days=35):
+                return None
             if cand >= floor:
+                return cand.astimezone(timezone.utc)
+            if year == now_local.year:
                 return cand.astimezone(timezone.utc)
         return None
     wd = WEEKDAY_RE.search(phrase)
@@ -558,6 +569,8 @@ def parse_reset_phrase(phrase, now):
         if wd and WEEKDAYS[day.weekday()] != wd.group("wd").lower():
             continue
         cand = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
+        if cand > now + timedelta(days=35):
+            return None
         if cand >= floor:
             return cand.astimezone(timezone.utc)
     return None

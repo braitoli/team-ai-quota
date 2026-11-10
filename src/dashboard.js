@@ -1310,17 +1310,17 @@ function clientApp() {
     var w = wkRow(r), now = Date.now();
     var wkReady = isWeekResetReady(r, w);
     var h5Ready = is5hResetReady(r);
-    var f5 = wkReady || h5Ready ? 100 : free5Of(r);
+    var f5 = h5Ready ? 100 : free5Of(r);
     var f7 = wkReady ? 100 : free7Of(w);
     var rs5 = ms(r.resets_at), rs7 = w ? ms(w.resets_at) : (r.weekly_resets_at ? ms(r.weekly_resets_at) : (r.weekly_resets_at_passed ? ms(r.weekly_resets_at_passed) : null));
     var d = { r: r, w: w, f5: f5, f7: f7, rs5: rs5, rs7: rs7, score: 0, status: "ready", reasons: [], week_reset_ready: wkReady, five_hour_reset_ready: h5Ready };
     if (r.state_code === "AUTH") { d.status = "auth"; return d; }
     if (!wkReady && (r.weekly_capped || (f7 != null && f7 <= 5))) { d.status = "capped"; d.reopen = r.weekly_capped && r.weekly_resets_at ? ms(r.weekly_resets_at) : rs7; return d; }
-    if (!h5Ready && !wkReady && r.state_code === "COOLDOWN" && rs5 != null && rs5 > now) { d.status = "cooldown"; d.reopen = rs5; return d; }
+    if (!h5Ready && r.state_code === "COOLDOWN" && rs5 != null && rs5 > now) { d.status = "cooldown"; d.reopen = rs5; return d; }
     var rem5 = rs5 != null ? Math.max(0, (rs5 - now) / H) : 5;
     var rem7 = rs7 != null ? Math.max(0, (rs7 - now) / H) : 168;
     var rough5 = isRough(r);
-    var waste5 = (!wkReady && !h5Ready && r.state_code === "ACTIVE") ? wLo(r) : 0;
+    var waste5 = (!h5Ready && r.state_code === "ACTIVE") ? wLo(r) : 0;
     var waste7 = (!wkReady && w && w.state_code === "ACTIVE") ? (w.at_risk_waste_min != null ? w.at_risk_waste_min : (w.at_risk_waste || 0)) : 0;
     var U5 = Math.min(100, waste5 * (5 / Math.max(rem5, 1)));
     var U7 = Math.min(100, waste7 * clamp(72 / Math.max(rem7, 12), 0.3, 3));
@@ -1334,12 +1334,12 @@ function clientApp() {
       d.score = (0.8 * U5 + 0.2 * H5) * gate;
     }
     if (exhaustInfo(r)) { d.status = "warn"; d.score *= 0.5; }
-    if (wkReady) d.reasons.push(t("act_week_reset_ready", { time: hm(rs7) }));
+    if (wkReady && rs7) d.reasons.push(t("act_week_reset_ready", { time: hm(rs7) }));
     if (f7 != null && f7 < 25 && !wkReady) d.reasons.push(t("c_wk_low", { pct: pct(f7) }));
     if (waste7 >= 10 && !wkReady) d.reasons.push(t("c_wk_waste", { pct: pct(waste7), time: when(rs7) }));
     if ((w && w.state_code === "FRESH" && !r.weekly_capped) || wkReady) d.reasons.push(t("c_wk_unopened_full"));
-    if (waste5 >= 10 && !wkReady && !h5Ready) d.reasons.push(t("c_5h_waste", { amt: (rough5 ? "~" + Math.round(waste5) + "–" + pct(wHi(r)) : pct(waste5, approx(r))), time: hm(rs5) }));
-    if ((r.state_code === "FRESH" && !r.weekly_capped) || wkReady || h5Ready) d.reasons.push(t("c_5h_unopened_full"));
+    if (waste5 >= 10 && !h5Ready) d.reasons.push(t("c_5h_waste", { amt: (rough5 ? "~" + Math.round(waste5) + "–" + pct(wHi(r)) : pct(waste5, approx(r))), time: hm(rs5) }));
+    if ((r.state_code === "FRESH" && !r.weekly_capped) || h5Ready) d.reasons.push(t("c_5h_unopened_full"));
     return d;
   }
   var STATUS_ORDER = { ready: 0, warn: 0, cooldown: 1, capped: 2, auth: 3 };
@@ -1364,10 +1364,10 @@ function clientApp() {
     var r = d.r, w = d.w;
     var wkReady = d.week_reset_ready;
     var h5Ready = d.five_hour_reset_ready;
-    var b5 = (wkReady || h5Ready) ? barHtml([["free", 100]], "") : barHtml(composition(r), "");
+    var b5 = h5Ready ? barHtml([["free", 100]], "") : barHtml(composition(r), "");
     var b7 = wkReady ? barHtml([["free", 100]], "") : (w ? barHtml(composition(w), "") : barHtml([["unknown", 100]], ""));
-    var w7Note = wkReady ? '<span class="t-good">' + t("note_reset_ready", { time: hm(d.rs7) }) + '</span>' : null;
-    var w5Note = (wkReady || h5Ready) ? '<span class="t-good">' + t("note_reset_ready", { time: hm(wkReady ? d.rs7 : d.rs5) }) + '</span>' : null;
+    var w7Note = (wkReady && d.rs7) ? '<span class="t-good">' + t("note_reset_ready", { time: hm(d.rs7) }) + '</span>' : null;
+    var w5Note = (h5Ready && d.rs5) ? '<span class="t-good">' + t("note_reset_ready", { time: hm(d.rs5) }) + '</span>' : null;
     var w7 = (w || wkReady) ? winBlock("📅 7d", w || r, d.f7, d.rs7, b7, w7Note) : '<div class="qcol"><div class="qcol-l">' + t("label_7d") + '</div><div class="qcol-v num">—</div>' + b7 + '<div class="qcol-n">' + (r.state_code === "AUTH" ? t("cannot_read") : t("no_weekly_report")) + "</div></div>";
     var provSettings = (getSettings().providers || {})[PROVIDER] || {};
     var has30d = (Array.isArray(provSettings.windows) ? provSettings.windows.indexOf("30d") >= 0 : Boolean(provSettings.windows && provSettings.windows["30d"])) || r.monthly_used_percent != null || PROVIDER === "copilot" || PROVIDER === "cursor";
@@ -1793,12 +1793,12 @@ function clientApp() {
       var lr = ms(r.last_report_at);
       var age = lr != null ? agoShort(ref - lr) : "—";
       var wkBar = wkReady ? barHtml([["free", 100]], "") : (w ? barHtml(composition(w), "") : barHtml([["unknown", 100]], ""));
-      var wkNote = wkReady ? '<span class="t-good">' + t("note_reset_ready", { time: hm(d.rs7) }) + '</span>' : (w ? windowNote(w) : null);
+      var wkNote = (wkReady && d.rs7) ? '<span class="t-good">' + t("note_reset_ready", { time: hm(d.rs7) }) + '</span>' : (w ? windowNote(w) : null);
       var wkCol = (w || wkReady) ? cardCol("📅 7d", w || r, d.f7, wkNote, r.reset_weekly_at, wkBar) :
         '<div class="qcol"><div class="qcol-l">' + t("label_7d") + '</div><div class="qcol-v num">—<small>' + t("unknown_label") + '</small></div>' + barHtml([["unknown", 100]], "") +
         '<div class="qcol-n muted">' + (r.state_code === "AUTH" ? t("cannot_read") : t("no_weekly_report")) + "</div></div>";
-      var h5Bar = (wkReady || h5Ready) ? barHtml([["free", 100]], "") : null;
-      var h5Note = (wkReady || h5Ready) ? '<span class="t-good">' + t("note_reset_ready", { time: hm(wkReady ? d.rs7 : d.rs5) }) + '</span>' : windowNote(r);
+      var h5Bar = h5Ready ? barHtml([["free", 100]], "") : null;
+      var h5Note = (h5Ready && d.rs5) ? '<span class="t-good">' + t("note_reset_ready", { time: hm(d.rs5) }) + '</span>' : windowNote(r);
 
       var provSettings = (getSettings().providers || {})[PROVIDER] || {};
       var has30d = (Array.isArray(provSettings.windows) ? provSettings.windows.indexOf("30d") >= 0 : Boolean(provSettings.windows && provSettings.windows["30d"])) || r.monthly_used_percent != null || PROVIDER === "copilot" || PROVIDER === "cursor";

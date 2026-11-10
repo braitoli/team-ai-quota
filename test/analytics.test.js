@@ -1565,3 +1565,67 @@ test("ingestReport: report with older R < ref but valid limits updates limits an
   assert.equal(row.weekly_used, 35);
 });
 
+test("self-healing: future timestamps in last_closed_end and win.resets_at are cleared", () => {
+  const farFuture = T0 + 365 * DAY_MS;
+  const corruptedState = {
+    email: "dev@x.io",
+    first_seen: T0,
+    used: 50,
+    resets_at: farFuture,
+    win: { start: T0, resets_at: farFuture, last_used: 50, waste_seen: 0 },
+    last_closed_end: farFuture,
+    idle_from: null,
+    last_report_at: T0,
+    last_valid_at: T0,
+    last_sample: null,
+  };
+
+  // 1. applyHardTransitions heals the corrupted state
+  const { state: healedHard, changed } = applyHardTransitions(corruptedState, T0);
+  assert.equal(changed, true);
+  assert.equal(healedHard.last_closed_end, null);
+  assert.equal(healedHard.win, null);
+  assert.equal(healedHard.resets_at, null);
+
+  // 2. ingestReport heals the corrupted state and accepts a fresh report
+  const normalReport = {
+    kind: "quota",
+    email: "dev@x.io",
+    used: 10,
+    resets_at: T0 + 3 * HOUR_MS,
+    limits: null,
+  };
+  const { state: healedIngest } = ingestReport(corruptedState, normalReport, T0);
+  assert.equal(healedIngest.last_closed_end, null);
+  assert.equal(healedIngest.win.resets_at, T0 + 3 * HOUR_MS);
+  assert.equal(healedIngest.used, 10);
+});
+
+test("validateReport: rejects 5h resets_at more than 24 hours in the future", () => {
+  const futureReset = new Date(Date.now() + 48 * HOUR_MS).toISOString();
+  const res = validateReport({
+    email: "dev@example.com",
+    used_percent: 20,
+    resets_at: futureReset,
+  });
+  assert.equal(res.ok, false);
+  assert.match(res.error, /24 hours/);
+});
+
+test("computeWeekly: expired limit from days ago does NOT activate weekly_reset_ready", () => {
+  // A weekly limit that expired 3 days ago
+  const oldLimits = [
+    { group: "weekly", kind: "seven_day", percent: 90, resets_at: T0 - 3 * DAY_MS, is_active: true },
+  ];
+  const wOld = computeWeekly(oldLimits, T0);
+  assert.equal(wOld.weekly_reset_ready, false);
+
+  // A weekly limit that expired 1 hour ago activates weekly_reset_ready
+  const recentLimits = [
+    { group: "weekly", kind: "seven_day", percent: 90, resets_at: T0 - HOUR_MS, is_active: true },
+  ];
+  const wRecent = computeWeekly(recentLimits, T0);
+  assert.equal(wRecent.weekly_reset_ready, true);
+});
+
+

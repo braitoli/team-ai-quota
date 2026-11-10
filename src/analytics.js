@@ -384,6 +384,9 @@ export function validateReport(body) {
   if (resetsAt === undefined) {
     return { ok: false, error: "resets_at must be an ISO date string or null" };
   }
+  if (resetsAt !== null && resetsAt > (fetchedAt ?? Date.now()) + 24 * HOUR_MS) {
+    return { ok: false, error: "resets_at cannot be more than 24 hours in the future" };
+  }
   return {
     ok: true,
     report: {
@@ -566,6 +569,15 @@ function markValid(s, report, now) {
 export function ingestReport(prevState, report, now, recentSamples = []) {
   const s = prevState ? cloneState(prevState) : newState(keyOf(report), now);
   const out = { windows: [], gaps: [], weeks: [] };
+  if (s.last_closed_end !== null && s.last_closed_end > now + 6 * HOUR_MS) {
+    s.last_closed_end = null;
+  }
+  if (s.win && s.win.resets_at > now + 6 * HOUR_MS) {
+    s.win = null;
+  }
+  if (s.resets_at !== null && s.resets_at > now + 6 * HOUR_MS) {
+    s.resets_at = null;
+  }
   if (report.pool) {
     s.account_email = report.email;
     s.pool = report.pool;
@@ -761,6 +773,18 @@ export function applyHardTransitions(prevState, now) {
   const s = cloneState(prevState);
   const out = { windows: [], gaps: [], weeks: [] };
   let changed = false;
+  if (s.last_closed_end !== null && s.last_closed_end > now + 6 * HOUR_MS) {
+    s.last_closed_end = null;
+    changed = true;
+  }
+  if (s.win && s.win.resets_at > now + 6 * HOUR_MS) {
+    s.win = null;
+    changed = true;
+  }
+  if (s.resets_at !== null && s.resets_at > now + 6 * HOUR_MS) {
+    s.resets_at = null;
+    changed = true;
+  }
   if (s.win && now >= s.win.resets_at) {
     closeWindow(s, out);
     changed = true;
@@ -832,7 +856,9 @@ export function computeWeekly(limits, now) {
     const isWeekly = l.group === "weekly" || (l.kind && (l.kind.startsWith("seven_day") || l.kind.startsWith("weekly")));
     if (!isWeekly) continue;
     if (l.resets_at !== null && l.resets_at !== undefined && l.resets_at <= now) {
-      hasExpiredWeekly = true;
+      if (now - l.resets_at <= 2 * HOUR_MS + 10 * MINUTE_MS) {
+        hasExpiredWeekly = true;
+      }
       continue;
     }
     if (typeof l.percent !== "number" || !Number.isFinite(l.percent)) continue;
@@ -2202,7 +2228,9 @@ function publicRow(s, poolLabels, now) {
   if (now && r.weekly_resets_at) {
     const wTs = tsOf(r.weekly_resets_at);
     if (wTs !== null && now >= wTs) {
-      r.weekly_reset_ready = true;
+      if (now - wTs <= 2 * HOUR_MS + 10 * MINUTE_MS) {
+        r.weekly_reset_ready = true;
+      }
       r.weekly_resets_at_passed = r.weekly_resets_at;
       r.weekly_capped = false;
       r.five_hour_disabled = false;

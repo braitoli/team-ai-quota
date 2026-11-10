@@ -99,6 +99,18 @@ class ParserTests(unittest.TestCase):
         r = parse("usage-06-new-year.txt", now)
         self.assertEqual(r["session"]["resets_at"], "2027-01-01T05:05:00+00:00")
 
+    def test_past_reset_in_same_year_does_not_jump_to_next_year(self):
+        now = datetime(2026, 11, 10, 8, 0, tzinfo=timezone.utc)
+        dt = rq.parse_reset_phrase("Oct 28 at 11:40am (Asia/Saigon)", now)
+        self.assertIsNotNone(dt)
+        self.assertEqual(dt.year, 2026)
+        self.assertEqual(dt.isoformat(), "2026-10-28T04:40:00+00:00")
+
+    def test_candidate_farther_than_35_days_is_rejected(self):
+        now = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)
+        dt = rq.parse_reset_phrase("in 40d 0h", now)
+        self.assertIsNone(dt)
+
     def test_idle_zero_without_reset_is_ok_with_null_reset(self):
         r = parse("usage-07-idle-zero-no-reset.txt")
         self.assertEqual(r["parse_status"], "ok")
